@@ -1,0 +1,7 @@
+﻿services:
+  batalha-naval-back:
+    image: batalha-naval-back
+    build:
+      context: .
+      dockerfile: Dockerfile
+

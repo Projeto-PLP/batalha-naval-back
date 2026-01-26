@@ -1,4 +1,6 @@
 # Batalha Naval - Back End
+[Scalar API Reference](http://localhost:5205/scalar/v1)
+
 
 # 🚢 Batalha Naval - PLP Project
 
