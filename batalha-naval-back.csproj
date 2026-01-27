@@ -19,4 +19,9 @@
         <PackageReference Include="Scalar.AspNetCore" Version="2.12.18" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="src\BatalhaNaval.Application\BatalhaNaval.Application.csproj" />
+      <ProjectReference Include="src\BatalhaNaval.Infrastructure\BatalhaNaval.Infrastructure.csproj" />
+    </ItemGroup>
+
 </Project>
