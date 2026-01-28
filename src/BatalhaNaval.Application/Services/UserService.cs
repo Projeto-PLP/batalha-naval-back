@@ -8,10 +8,12 @@ namespace BatalhaNaval.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IPasswordService _passwordService;
 
-    public UserService(IUserRepository userRepository)
+    public UserService(IUserRepository userRepository, IPasswordService passwordService)
     {
         _userRepository = userRepository;
+        _passwordService = passwordService;
     }
 
     public async Task<UserResponseDto> RegisterUserAsync(CreateUserDto dto)
@@ -19,7 +21,7 @@ public class UserService : IUserService
         if (await _userRepository.ExistsByUsernameAsync(dto.Username))
             throw new InvalidOperationException("Nome de usuário já está em uso.");
 
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+        var passwordHash = _passwordService.HashPassword(dto.Password);
 
         var newUser = new User
         {

@@ -24,5 +24,5 @@ public class User
     [Description("Data de criação do usuário")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public PlayerProfile? Profile { get; set; }
+    public virtual PlayerProfile? Profile { get; set; }
 }

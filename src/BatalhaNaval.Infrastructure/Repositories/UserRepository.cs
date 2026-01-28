@@ -24,7 +24,8 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByUsernameAsync(string username)
     {
         return await _context.Users
-            .Include(u => u.Username)
+            .AsNoTracking()
+            .Include(u => u.Profile)
             .FirstOrDefaultAsync(u => u.Username == username);
     }
 
