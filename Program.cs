@@ -6,6 +6,9 @@ using BatalhaNaval.Infrastructure.Repositories;
 using BatalhaNaval.Application.Interfaces;
 using BatalhaNaval.Application.Services;
 using BatalhaNaval.Domain.Interfaces;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +42,7 @@ builder.Services.AddControllers()
         // Converte Enums para String na API (Ex: "Dynamic", "Water", "Hit")
         // Isso facilita a leitura pelo Frontend/BFF
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        
+
         // Ignora campos nulos no JSON de resposta para economizar banda
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
@@ -60,17 +63,17 @@ builder.Services.AddOpenApi("v1", options =>
 
 builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>
 {
-    options.UseNpgsql(connectionString, npgsqlOptions => 
+    options.UseNpgsql(connectionString, npgsqlOptions =>
     {
         npgsqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5, 
-            maxRetryDelay: TimeSpan.FromSeconds(10), 
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
             errorCodesToAdd: null);
     });
-    
+
     if (builder.Environment.IsDevelopment())
     {
-        options.EnableSensitiveDataLogging(); 
+        options.EnableSensitiveDataLogging();
         options.EnableDetailedErrors();
     }
 });
@@ -78,6 +81,14 @@ builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 builder.Services.AddScoped<IUserService, UserService>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "liveness" })
+    .AddNpgSql(
+        connectionString: builder.Configuration.GetConnectionString("DefaultConnection"),
+        name: "postgresql",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: new[] { "readiness", "db" });
 
 var app = builder.Build();
 
@@ -101,6 +112,17 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("liveness")
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("readiness"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 // Dica: Logs iniciais para debug
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
