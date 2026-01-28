@@ -44,6 +44,18 @@ public class PlayerProfile
 
     [NotMapped] public List<string> EarnedMedalCodes { get; set; } = new();
 
+    [NotMapped] public List<int> MedalIds { get; } = new();
+
+    public bool HasMedal(int medalId)
+    {
+        return MedalIds.Contains(medalId);
+    }
+
+    public void AddMedal(int medalId)
+    {
+        if (!HasMedal(medalId)) MedalIds.Add(medalId);
+    }
+
     public void AddWin(int points)
     {
         Wins++;
