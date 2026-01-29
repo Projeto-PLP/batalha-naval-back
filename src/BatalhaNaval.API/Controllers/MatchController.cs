@@ -28,19 +28,48 @@ public class MatchController : ControllerBase
     /// </remarks>
     /// <response code="201">Partida iniciada com sucesso.</response>
     /// <response code="400">Dados inválidos para iniciar a partida.</response>
+    /// <response code="404">Recurso não encontrado.</response>
+    /// <response code="500">Erro interno ao criar partida.</response>
     [HttpPost(Name = "PostStartMatch")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> StartMatch([FromBody] StartMatchInput input)
     {
         try
         {
             var matchId = await _matchService.StartMatchAsync(input);
-            return CreatedAtAction(nameof(StartMatch), new { id = matchId }, matchId);
+            return CreatedAtAction(
+                nameof(StartMatch),
+                new { id = matchId },
+                new { matchId }
+            );
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Recurso não encontrado",
+                detail: ex.Message
+            );
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Dados inválidos",
+                detail: ex.Message
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar partida.");
+            return Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Erro interno",
+                detail: "Ocorreu um erro inesperado ao criar a partida. Tente novamente."
+            );
         }
     }
 

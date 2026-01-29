@@ -8,4 +8,5 @@ public interface IUserRepository
     Task<User?> GetByUsernameAsync(string username);
     Task<User?> GetByIdAsync(Guid id);
     Task<bool> ExistsByUsernameAsync(string username);
+    Task<bool> ExistsAsync(Guid id);
 }

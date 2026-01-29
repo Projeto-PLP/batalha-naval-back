@@ -12,15 +12,11 @@ post {
 
 body:json {
   {
-    "playerId": "fb084f8c-fa6e-4ffe-a14c-9a470c668c24",
+    "playerId": "e1d00dd0-c2bc-4d95-baf3-a79c22c3ec5f",
     "mode": "Dynamic",
-    "aiDifficulty": "Basic"
+    "aiDifficulty": "Basic",
+    "opponentId": "21fc64b1-9ce0-4da6-8471-a6ee2d3803dc"
   }
-}
-
-script:post-response {
-  const data = res.getBody();
-  bru.setEnvVar("matchId", data);
 }
 
 settings {

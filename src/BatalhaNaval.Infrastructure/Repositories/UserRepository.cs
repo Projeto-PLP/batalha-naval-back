@@ -41,4 +41,9 @@ public class UserRepository : IUserRepository
     {
         return await _context.Users.AnyAsync(u => u.Username == username);
     }
+
+    public async Task<bool> ExistsAsync(Guid id)
+    {
+        return await _context.Users.AnyAsync(u => u.Id == id);
+    }
 }

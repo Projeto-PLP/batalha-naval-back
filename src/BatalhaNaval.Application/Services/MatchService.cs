@@ -11,14 +11,34 @@ namespace BatalhaNaval.Application.Services;
 public class MatchService : IMatchService
 {
     private readonly IMatchRepository _repository;
+    private readonly IUserRepository _userRepository;
 
-    public MatchService(IMatchRepository repository)
+    public MatchService(IMatchRepository repository, IUserRepository userRepository)
     {
         _repository = repository;
+        _userRepository = userRepository;
     }
 
     public async Task<Guid> StartMatchAsync(StartMatchInput input)
     {
+        var playerExists = await _userRepository.ExistsAsync(input.PlayerId);
+
+        if (!playerExists) throw new KeyNotFoundException($"O Jogador com ID '{input.PlayerId}' não foi encontrado.");
+
+        if (input.OpponentId.HasValue)
+        {
+            if (input.PlayerId == input.OpponentId.Value)
+                throw new ArgumentException("O jogador não pode jogar contra si mesmo.");
+
+            var opponentExists = await _userRepository.ExistsAsync(input.OpponentId.Value);
+            if (!opponentExists)
+                throw new KeyNotFoundException($"O Oponente com ID '{input.OpponentId.Value}' não foi encontrado.");
+        }
+
+        if (input.OpponentId.HasValue && input.AiDifficulty.HasValue)
+            throw new ArgumentException(
+                "Não é possível definir um oponente humano e uma dificuldade de IA ao mesmo tempo.");
+
         // Cria a partida (Entidade de Domínio)
         var match = new Match(input.PlayerId, input.Mode, input.AiDifficulty, input.OpponentId);
 

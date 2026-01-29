@@ -11,8 +11,7 @@ post {
 }
 
 script:post-response {
-  const data = res.getBody();
-  bru.setEnvVar("apiToken", data.token);
+  // bru.setEnvVar("apiToken", "");
 }
 
 settings {
