@@ -1,5 +1,6 @@
 ﻿using BatalhaNaval.Application.DTOs;
 using BatalhaNaval.Application.Interfaces;
+using BatalhaNaval.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,11 +30,13 @@ public class MatchController : ControllerBase
     /// <response code="201">Partida iniciada com sucesso.</response>
     /// <response code="400">Dados inválidos para iniciar a partida.</response>
     /// <response code="404">Recurso não encontrado.</response>
+    /// <response code="409">Conflito ao iniciar partida (usuário já em jogo ou oponente ocupado).</response>
     /// <response code="500">Erro interno ao criar partida.</response>
     [HttpPost(Name = "PostStartMatch")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> StartMatch([FromBody] StartMatchInput input)
     {
@@ -59,6 +62,23 @@ public class MatchController : ControllerBase
             return Problem(
                 statusCode: StatusCodes.Status400BadRequest,
                 title: "Dados inválidos",
+                detail: ex.Message
+            );
+        }
+        catch (UserHasActiveMatchException ex)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Partida em andamento",
+                detail: "Você já possui uma partida ativa. Retome-a utilizando o ID fornecido.",
+                extensions: new Dictionary<string, object?> { { "activeMatchId", ex.MatchId } }
+            );
+        }
+        catch (OpponentBusyException ex)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Oponente indisponível",
                 detail: ex.Message
             );
         }

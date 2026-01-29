@@ -3,6 +3,7 @@ using BatalhaNaval.Application.Interfaces;
 using BatalhaNaval.Application.Services.AI;
 using BatalhaNaval.Domain.Entities;
 using BatalhaNaval.Domain.Enums;
+using BatalhaNaval.Domain.Exceptions;
 using BatalhaNaval.Domain.Interfaces;
 using BatalhaNaval.Domain.ValueObjects;
 
@@ -38,6 +39,18 @@ public class MatchService : IMatchService
         if (input.OpponentId.HasValue && input.AiDifficulty.HasValue)
             throw new ArgumentException(
                 "Não é possível definir um oponente humano e uma dificuldade de IA ao mesmo tempo.");
+
+        // Verificar se existem partidas em curso antes de criar uma nova
+        var activeMatchId = await _repository.GetActiveMatchIdAsync(input.PlayerId);
+        if (activeMatchId.HasValue)
+            throw new UserHasActiveMatchException(activeMatchId.Value);
+
+        if (input.OpponentId.HasValue)
+        {
+            var opponentActiveMatchId = await _repository.GetActiveMatchIdAsync(input.OpponentId.Value);
+            if (opponentActiveMatchId.HasValue)
+                throw new OpponentBusyException($"O oponente '{input.OpponentId}' já está em outra partida.");
+        }
 
         // Cria a partida (Entidade de Domínio)
         var match = new Match(input.PlayerId, input.Mode, input.AiDifficulty, input.OpponentId);

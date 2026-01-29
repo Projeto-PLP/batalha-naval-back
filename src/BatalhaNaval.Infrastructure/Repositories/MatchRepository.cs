@@ -1,5 +1,6 @@
 ﻿using BatalhaNaval.Application.Interfaces;
 using BatalhaNaval.Domain.Entities;
+using BatalhaNaval.Domain.Enums;
 using BatalhaNaval.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -53,5 +54,15 @@ public class MatchRepository : IMatchRepository
     {
         _context.PlayerProfiles.Update(profile);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<Guid?> GetActiveMatchIdAsync(Guid userId)
+    {
+        var matchId = await _context.Matches
+            .Where(m => (m.Player1Id == userId || m.Player2Id == userId)
+                        && m.Status != MatchStatus.Finished)
+            .Select(m => m.Id)
+            .FirstOrDefaultAsync();
+        return matchId == Guid.Empty ? null : matchId;
     }
 }

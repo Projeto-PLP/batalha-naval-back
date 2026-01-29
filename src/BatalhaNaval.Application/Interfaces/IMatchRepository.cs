@@ -12,4 +12,6 @@ public interface IMatchRepository
     Task UpdateUserProfileAsync(PlayerProfile profile);
 
     Task<PlayerProfile> GetUserProfileAsync(Guid userId);
+
+    Task<Guid?> GetActiveMatchIdAsync(Guid userId);
 }
