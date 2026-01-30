@@ -95,13 +95,21 @@ public class MatchService : IMatchService
             match.SetPlayerReady(Guid.Empty); // Guid.Empty representa a IA
         }
 
-        await _cacheService.SetAsync($"match:{match.Id}", match, TimeSpan.FromMinutes(10));
+        var matchRedis = GenerateMatchRedis(match);
+        var matchHistoryRedis = new List<MatchHistoryRedis>();
+
+        await _cacheService.SetAsync($"match:{match.Id}", matchRedis, TimeSpan.FromMinutes(60));
+
+        await _cacheService.SetAsync($"match:{match.Id}:history", matchHistoryRedis, TimeSpan.FromMinutes(60));
+
         await _repository.SaveAsync(match);
     }
 
     public async Task<TurnResultDto> ExecutePlayerShotAsync(ShootInput input, Guid playerId)
     {
         var match = await GetMatchOrThrow(input.MatchId);
+        // TODO Adaptar para trabalhar com o cache em partida
+        var matchRedis = await GetMatchRedisOrThrow(input.MatchId);
 
         // 1. Executa o tiro do jogador (Entidade Match valida turno e regras)
         var isHit = match.ExecuteShot(playerId, input.X, input.Y);
@@ -140,6 +148,8 @@ public class MatchService : IMatchService
     public async Task ExecutePlayerMoveAsync(MoveShipInput input)
     {
         var match = await GetMatchOrThrow(input.MatchId);
+        // TODO Adaptar para trabalhar com o cache em partida
+        var matchRedis = await GetMatchRedisOrThrow(input.MatchId);
 
         // Executa movimento (Entidade valida regras do Modo Dinâmico)
         match.ExecuteShipMovement(input.PlayerId, input.ShipId, input.Direction);
@@ -196,6 +206,13 @@ public class MatchService : IMatchService
     {
         var match = await _repository.GetByIdAsync(matchId);
         if (match == null) throw new KeyNotFoundException("Partida não encontrada.");
+        return match;
+    }
+
+    private async Task<MatchRedis> GetMatchRedisOrThrow(Guid matchId)
+    {
+        var match = await _cacheService.GetAsync<MatchRedis>($"match:{matchId}");
+        if (match == null) throw new KeyNotFoundException("Partida não encontrada no cache.");
         return match;
     }
 
@@ -316,5 +333,100 @@ public class MatchService : IMatchService
         }
 
         return coords;
+    }
+
+    private MatchRedis GenerateMatchRedis(Match match)
+    {
+        var p1Ships = GenerateShipsMatchRedis(match.Player1Board.Ships);
+        var p2Ships = GenerateShipsMatchRedis(match.Player2Board.Ships);
+
+        var matchRedis = new MatchRedis
+        {
+            // IMUTÁVEIS
+            MatchId = match.Id.ToString(),
+
+            GameMode = match.Mode switch
+            {
+                GameMode.Classic => GameModeRedis.CLASSIC,
+                _ => GameModeRedis.DYNAMIC
+            },
+
+            AiDifficulty = match.AiDifficulty switch
+            {
+                Difficulty.Basic => AiDifficultyRedis.BASIC,
+                Difficulty.Advanced => AiDifficultyRedis.ADVANCED,
+                _ => AiDifficultyRedis.INTERMEDIATE
+            },
+
+            Player1Id = match.Player1Id.ToString(),
+            Player2Id = match.Player2Id?.ToString(),
+            Status = MatchStatusRedis.IN_PROGRESS,
+
+            // MUTÁVEIS
+            TurnNumber = 0,
+            TurnPlayerId = match.CurrentTurnPlayerId.ToString(),
+            P1_ConsecutiveTimeouts = 0,
+            P2_ConsecutiveTimeouts = 0,
+
+            TurnStartedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+
+            P1_Stats = new PlayerStatsRedis(),
+            P2_Stats = new PlayerStatsRedis(),
+
+            Boards = new MatchBoardsRedis
+            {
+                P1 = new PlayerBoardRedis
+                {
+                    AliveShips = p1Ships.Count(s => !s.Sunk),
+                    OceanGrid = new Dictionary<string, int>(),
+                    Ships = p1Ships
+                },
+                P2 = new PlayerBoardRedis
+                {
+                    AliveShips = p2Ships.Count(s => !s.Sunk),
+                    OceanGrid = new Dictionary<string, int>(),
+                    Ships = p2Ships
+                }
+            }
+        };
+
+        return matchRedis;
+    }
+
+    private List<ShipRedis> GenerateShipsMatchRedis(List<Ship> ships)
+    {
+        return
+        [
+            .. ships.Select((ship, index) => new ShipRedis
+            {
+                Id = index + 1,
+                Type = ship.Name,
+                Size = ship.Size,
+                Orientation = GetOrientationRedis(ship),
+                Sunk = ship.IsSunk,
+                IsDamaged = ship.HasBeenHit,
+                Segments =
+                [
+                    .. ship.Coordinates.Select(c => new ShipSegmentRedis
+                    {
+                        X = c.X,
+                        Y = c.Y,
+                        Hit = c.IsHit
+                    })
+                ]
+            })
+        ];
+    }
+
+    private ShipOrientationRedis GetOrientationRedis(Ship ship)
+    {
+        if (ship.Size == 1) return ShipOrientationRedis.MIXED;
+
+        return ship.Orientation.ToString() switch
+        {
+            "Horizontal" => ShipOrientationRedis.HORIZONTAL,
+            "Vertical" => ShipOrientationRedis.VERTICAL,
+            _ => ShipOrientationRedis.HORIZONTAL
+        };
     }
 }
