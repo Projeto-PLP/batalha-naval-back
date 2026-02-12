@@ -1,4 +1,5 @@
-﻿using BatalhaNaval.Domain.Enums;
+﻿using System.ComponentModel.DataAnnotations; // <--- IMPORTANTE: Adicione este using
+using BatalhaNaval.Domain.Enums;
 
 namespace BatalhaNaval.Application.DTOs;
 
@@ -11,11 +12,33 @@ public record StartMatchInput(
     Guid? OpponentId = null
 );
 
-// Entrada para realizar um tiro
-public record ShootInput(Guid MatchId, int X, int Y);
+// Mudamos de sintaxe posicional para sintaxe de propriedades
+public record ShootInput
+{
+    [Required(ErrorMessage = "O ID da partida é obrigatório.")]
+    public Guid MatchId { get; init; }
 
-// Entrada para mover navio (Modo Dinâmico)
-public record MoveShipInput(Guid MatchId, Guid ShipId, MoveDirection Direction);
+    [Required(ErrorMessage = "A coordenada X é obrigatória.")]
+    [Range(0, 9, ErrorMessage = "A coordenada X deve estar entre 0 e 9.")]
+    public int? X { get; init; } // int? (nullable) obriga o envio do valor
+
+    [Required(ErrorMessage = "A coordenada Y é obrigatória.")]
+    [Range(0, 9, ErrorMessage = "A coordenada Y deve estar entre 0 e 9.")]
+    public int? Y { get; init; } // int? (nullable) obriga o envio do valor
+}
+
+// Para evitar envio de movimento vazio
+public record MoveShipInput
+{
+    [Required]
+    public Guid MatchId { get; init; }
+    
+    [Required]
+    public Guid ShipId { get; init; }
+    
+    [Required(ErrorMessage = "A direção do movimento é obrigatória.")]
+    public MoveDirection? Direction { get; init; } // Enum nullable
+}
 
 // Entrada para posicionar navios (Setup)
 public record PlaceShipsInput(Guid MatchId, List<ShipPlacementDto> Ships);

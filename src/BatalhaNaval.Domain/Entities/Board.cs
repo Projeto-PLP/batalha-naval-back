@@ -28,7 +28,7 @@ public class Board
     public void AddShip(Ship ship)
     {
         // Validação inicial de posicionamento (Setup)
-        ValidateCoordinatesOrThrow(ship.Coordinates, ship.Id);
+        ValidatePlacement(ship.Coordinates, ship.Id);
         Ships.Add(ship);
 
         foreach (var coord in ship.Coordinates)
@@ -39,75 +39,114 @@ public class Board
     {
         var ship = Ships.FirstOrDefault(s => s.Id == shipId);
         if (ship == null)
-            throw new KeyNotFoundException("Navio não encontrado neste tabuleiro.");
+            throw new KeyNotFoundException($"Navio com ID {shipId} não encontrado neste tabuleiro.");
 
-        if (ship.IsSunk)
-            throw new InvalidOperationException("Navios afundados não podem se mover.");
-        
-        // 1. VALIDAÇÃO FÍSICA (Respeitar a Orientação)
-        // Navios maiores que 1 célula (Submarino é isento) não podem andar de lado (Strafing).
+        // REGRA 1: Navio Avariado não move
+        // Verifica se qualquer parte do navio já foi atingida
+        if (ship.Coordinates.Any(c => c.IsHit))
+        {
+            throw new InvalidOperationException("O navio está avariado e não pode ser movido.");
+        }
+
+        // REGRA 2: Bloqueio de Strafing (Movimento Lateral)
+        // Navios > 1 célula só movem no seu eixo
         if (ship.Size > 1) 
         {
             var isVertical = ship.Orientation == ShipOrientation.Vertical;
             var isHorizontal = ship.Orientation == ShipOrientation.Horizontal;
 
-            // Se Vertical, não pode ir Esquerda/Direita
+            // Se Vertical, só permite North/South
             if (isVertical && (direction == MoveDirection.West || direction == MoveDirection.East))
             {
-                throw new InvalidOperationException($"O navio '{ship.Name}' (Vertical) só pode se mover para Cima ou Baixo.");
+                throw new InvalidOperationException($"O navio '{ship.Name}' (Vertical) só pode se mover para Norte ou Sul.");
             }
 
-            // Se Horizontal, não pode ir Cima/Baixo
+            // Se Horizontal, só permite West/East
             if (isHorizontal && (direction == MoveDirection.North || direction == MoveDirection.South))
             {
-                throw new InvalidOperationException($"O navio '{ship.Name}' (Horizontal) só pode se mover para Esquerda ou Direita.");
+                throw new InvalidOperationException($"O navio '{ship.Name}' (Horizontal) só pode se mover para Leste ou Oeste.");
             }
         }
 
-        // Previsão das novas coordenadas
-        var proposedCoordinates = ship.PredictMovement(direction);
-        
-        // 2. VALIDAÇÃO DE COLISÃO (Limites, Outros Navios e Tiros)
-        ValidateCoordinatesOrThrow(proposedCoordinates, ship.Id);
+        // Calcula as novas coordenadas (Previsão)
+        // Usamos o método do Ship, mas precisamos garantir a conversão do Enum se necessário.
+        // Como o seu Enum bate com o esperado (North/South...), podemos passar direto ou calcular aqui.
+        // Vou calcular aqui para garantir total controle sobre o Enum do seu projeto.
+        var deltaX = 0;
+        var deltaY = 0;
 
-        // Se passou nas validações, atualiza o tabuleiro visualmente
+        switch (direction)
+        {
+            case MoveDirection.North: deltaY = -1; break;
+            case MoveDirection.South: deltaY = 1; break;
+            case MoveDirection.East:  deltaX = 1; break;
+            case MoveDirection.West:  deltaX = -1; break;
+            default: throw new ArgumentException("Direção inválida.");
+        }
+
+        var newCoordinates = new List<Coordinate>();
+        foreach (var c in ship.Coordinates)
+        {
+            newCoordinates.Add(new Coordinate(c.X + deltaX, c.Y + deltaY, c.IsHit));
+        }
         
-        // A. Limpa a posição antiga (pinta de água)
+        // REGRA 3: Validação de Destino (Colisões e Tiros)
+        ValidatePlacement(newCoordinates, ship.Id);
+
+        // --- EXECUÇÃO DO MOVIMENTO ---
+        
+        // A. Limpa a posição antiga
+        // CORREÇÃO DO "RASTRO FANTASMA":
+        // Como validamos que navio avariado NÃO move, sabemos que ele estava intacto.
+        // Porém, precisamos garantir que ao sair, a célula volte ao estado correto. Se a célula era SHIP, vira WATER
         foreach (var coord in ship.Coordinates) 
-            Cells[coord.X][coord.Y] = CellState.Water;
+        {
+            if (Cells[coord.X][coord.Y] == CellState.Ship)
+            {
+                Cells[coord.X][coord.Y] = CellState.Water;
+            }
+            // Se fosse Hit (o que a regra 1 impede), viraria Missed:
+            // else if (Cells[coord.X][coord.Y] == CellState.Hit) Cells[coord.X][coord.Y] = CellState.Missed;
+        }
 
         // B. Atualiza a entidade Navio
-        ship.ConfirmMovement(proposedCoordinates);
+        // (Assumindo que você tem o método ConfirmMovement ou similar no Ship.cs)
+        // Se não tiver, use: ship.Coordinates = newCoordinates; (se for acessível) ou o método UpdateCoordinates
+        ship.ConfirmMovement(newCoordinates);
 
-        // C. Pinta a nova posição (pinta de Navio)
-        foreach (var coord in ship.Coordinates) 
+        // C. Pinta a nova posição
+        foreach (var coord in newCoordinates) 
+        {
             Cells[coord.X][coord.Y] = CellState.Ship;
+        }
     }
 
-    private void ValidateCoordinatesOrThrow(List<Coordinate> coords, Guid ignoreShipId)
+    // Método auxiliar unificado para AddShip e MoveShip
+    private void ValidatePlacement(List<Coordinate> coords, Guid ignoreShipId)
     {
         foreach (var coord in coords)
         {
             // Validação A: Limites do Mapa
-            if (!coord.IsWithinBounds(Size))
+            if (coord.X < 0 || coord.X >= Size || coord.Y < 0 || coord.Y >= Size)
                 throw new InvalidOperationException("O movimento faria o navio sair dos limites do tabuleiro.");
 
             // Validação B: Colisão com Objetos do Cenário (Tiros/Destroços)
-            // Aqui garantimos que o navio não "atropela" um tiro
+            // O navio não pode entrar em uma célula que já tem Hit ou Missed
             var currentCellState = Cells[coord.X][coord.Y];
             if (currentCellState == CellState.Hit || currentCellState == CellState.Missed)
             {
-                throw new InvalidOperationException("O navio não pode se mover para uma área atingida por disparos.");
+                throw new InvalidOperationException($"Movimento bloqueado: A posição ({coord.X}, {coord.Y}) já foi alvejada.");
             }
 
             // Validação C: Colisão com Outros Navios
             // Verifica se a coordenada bate em algum navio (ignorando o próprio navio que está se movendo)
+            // Se a célula é SHIP e não pertence ao navio atual -> Colisão
             var isOccupiedByAnotherShip = Ships.Any(otherShip =>
                 otherShip.Id != ignoreShipId &&
                 otherShip.Coordinates.Any(c => c.X == coord.X && c.Y == coord.Y));
 
             if (isOccupiedByAnotherShip)
-                throw new InvalidOperationException("O movimento causaria colisão com outro navio.");
+                throw new InvalidOperationException($"Colisão detectada com outro navio na posição ({coord.X}, {coord.Y}).");
         }
     }
 
@@ -116,33 +155,36 @@ public class Board
         // 1. Validação de Limites
         if (x < 0 || x >= Size || y < 0 || y >= Size)
         {
-            // Sugestão: InvalidCoordinateException é ótima se você tiver criado ela. 
-            // Se não, use ArgumentOutOfRangeException ou InvalidOperationException.
             throw new InvalidOperationException($"Coordenada ({x}, {y}) está fora dos limites do tabuleiro.");
         }
 
-        // 2. Validação de Tiro Repetido (A "Trava")
-        // Se a célula não for Água e não for Navio "Virgem", então já foi atingida.
+        // 2. Validação de Tiro Repetido
         var currentCell = Cells[x][y];
         if (currentCell == CellState.Hit || currentCell == CellState.Missed)
         {
-            throw new InvalidOperationException($"A posição ({x}, {y}) já foi alvejada previamente. Escolha outra.");
+            // Se quiser apenas retornar false (tiro inválido mas não erro de sistema), remova o throw.
+             throw new InvalidOperationException($"A posição ({x}, {y}) já foi alvejada previamente.");
         }
 
         // 3. Verifica se acertou Navio
-        // Nota: O método Any() é seguro, mas certifique-se que Ships não seja nulo (inicializado no construtor)
         var ship = Ships.FirstOrDefault(s => s.Coordinates.Any(c => c.X == x && c.Y == y));
 
         if (ship != null)
         {
-            var coord = ship.Coordinates.First(c => c.X == x && c.Y == y);
-        
-            // Atualiza o estado de dano do navio
-            // (Isso é importante para checar IsSunk depois)
-            var newCoords = new List<Coordinate>(ship.Coordinates);
-            var index = newCoords.IndexOf(coord);
-            newCoords[index] = coord with { IsHit = true };
-            ship.UpdateDamage(newCoords);
+            // Encontra a coordenada específica dentro do navio
+            var coordIndex = ship.Coordinates.FindIndex(c => c.X == x && c.Y == y);
+            if (coordIndex >= 0)
+            {
+                // Atualiza o estado de dano do navio (IsHit = true)
+                // Criamos uma nova lista para garantir imutabilidade se necessário, ou alteramos direto
+                var newCoords = new List<Coordinate>(ship.Coordinates);
+                
+                // Usamos o 'with' se Coordinate for record, ou cria novo objeto se for class
+                var oldCoord = newCoords[coordIndex];
+                newCoords[coordIndex] = new Coordinate(oldCoord.X, oldCoord.Y, true); 
+                
+                ship.UpdateDamage(newCoords);
+            }
 
             // Atualiza o visual do tabuleiro
             Cells[x][y] = CellState.Hit;

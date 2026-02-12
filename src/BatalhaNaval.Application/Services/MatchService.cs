@@ -136,7 +136,7 @@ public class MatchService : IMatchService
         }
 
         // Executa lógica de domínio
-        var isHit = match.ExecuteShot(playerId, input.X, input.Y);
+        var isHit = match.ExecuteShot(playerId, input.X.Value, input.Y.Value);
 
         // Verifica se afundou (apenas visual para o DTO de retorno)
         var targetBoard = playerId == match.Player1Id ? match.Player2Board : match.Player1Board;
@@ -177,7 +177,7 @@ public class MatchService : IMatchService
         var match = await _stateRepository.GetStateAsync(input.MatchId);
         if (match == null) match = await GetMatchOrThrow(input.MatchId); // Fallback
 
-        match.ExecuteShipMovement(playerId, input.ShipId, input.Direction);
+        match.ExecuteShipMovement(playerId, input.ShipId, input.Direction.Value);
 
         await _stateRepository.SaveStateAsync(match);
         // await _repository.SaveAsync(match); // Opcional SQL

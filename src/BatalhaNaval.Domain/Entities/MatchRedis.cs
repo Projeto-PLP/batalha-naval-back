@@ -66,7 +66,7 @@ public class PlayerBoardRedis
 
 public class ShipRedis
 {
-    [JsonPropertyName("Id")] public int Id { get; set; }
+    [JsonPropertyName("Id")] public string Id { get; set; }
 
     [JsonPropertyName("Type")] public string Type { get; set; }
 

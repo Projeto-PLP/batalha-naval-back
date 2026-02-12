@@ -191,7 +191,7 @@ public class Match
         // Mapeia Navios
         redisBoard.Ships = board.Ships.Select(s => new ShipRedis
         {
-            Id = s.Name.GetHashCode(), 
+            Id = s.Id.ToString(), 
             Type = s.Name,
             Size = s.Size,
             Sunk = s.IsSunk,
@@ -211,14 +211,15 @@ public class Match
     {
         var board = new Board();
         
-        // 1. Reconstrói os Navios (No tabuleiro limpo)
-        // Isso evita que o AddShip falhe ao encontrar uma célula já marcada como Hit
+        // 1. Reconstrói os Navios (No tabuleiro limpo), Isso evita que o AddShip falhe ao encontrar uma célula já marcada como Hit
         foreach (var shipDto in dto.Ships)
         {
             var coords = shipDto.Segments.Select(s => new Coordinate(s.X, s.Y) { IsHit = s.Hit }).ToList();
             var orientation = shipDto.Orientation == ShipOrientationRedis.HORIZONTAL ? ShipOrientation.Horizontal : ShipOrientation.Vertical;
             
-            var ship = new Ship(shipDto.Type, shipDto.Size, coords, orientation);
+            var shipId = Guid.Parse(shipDto.Id);
+            
+            var ship = new Ship(shipId, shipDto.Type, shipDto.Size, coords, orientation);
             board.AddShip(ship);
         }
 

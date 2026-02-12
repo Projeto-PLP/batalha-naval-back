@@ -5,6 +5,17 @@ namespace BatalhaNaval.Domain.Entities;
 
 public class Ship
 {
+
+    // Construtor do navio no redis
+    public Ship(Guid id, string name, int size, List<Coordinate> coordinates, ShipOrientation orientation)
+    {
+        Id = id;
+        Name = name;
+        Size = size;
+        Coordinates = coordinates;
+        Orientation = orientation;
+    }
+    
     public Ship(string name, int size, List<Coordinate> coordinates, ShipOrientation orientation)
     {
         if (coordinates.Count != size)
