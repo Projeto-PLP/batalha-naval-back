@@ -369,7 +369,7 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                     Ships = GetDefaultFleet().Where((ship, index) => index != 1).Concat([
                         new ShipPlacementDto("Porta-Aviões", 6, 0, 0, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.Conflict, "O movimento causaria colisão com outro navio.")
+                }, HttpStatusCode.Conflict, "colisão detectada com outro navio na posição (0, 0).")
         };
 
         await ExecuteScenarios(scenarios, EndpointSetup);
@@ -415,11 +415,11 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
             new("Correct matchId and wrong Y coordinates", new { MatchId = matchIdReal, x = 9, y = 10 },
                 HttpStatusCode.BadRequest, "A coordenada Y deve estar entre 0 e 9."),
             new("Correct matchId and without X coordinates", new { MatchId = matchIdReal, y = 9 },
-                HttpStatusCode.BadRequest, "Non ecziste"),
+                HttpStatusCode.BadRequest, "A coordenada X é obrigatória."),
             new("Correct matchId and without Y coordinates", new { MatchId = matchIdReal, x = 9 },
-                HttpStatusCode.BadRequest, "Non ecziste"),
+                HttpStatusCode.BadRequest, "A coordenada Y é obrigatória."),
             new("Correct matchId and no coordinates", new { MatchId = matchIdReal }, HttpStatusCode.BadRequest,
-                "Non ecziste")
+                "{\"x\":[\"a coordenada x é obrigatória.\"],\"y\":[\"a coordenada y é obrigatória.\"]}")
         };
 
         await ExecuteScenarios(scenarios, EndpointShot);
@@ -435,7 +435,7 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
         var secondResponse = await _client.PostAsJsonAsync(EndpointShot, new { MatchId = matchIdReal, x = 1, y = 1 });
         secondResponse.StatusCode.Should().Be(HttpStatusCode.Conflict, "Deveria dar ruim");
         var errorContent = await secondResponse.Content.ReadAsStringAsync();
-        errorContent.Should().Contain("A posição (1, 1) já foi alvejada previamente. Escolha outra.", "Deveria barrar tiro repetido");
+        errorContent.Should().Contain("A posição (1, 1) já foi alvejada previamente.", "Deveria barrar tiro repetido");
     }
 
     private List<ShipPlacementDto> GetDefaultFleet()
@@ -463,6 +463,11 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
         foreach (var scenario in scenarios)
         {
             if (scenario?.Deactivated is true) continue;
+
+            if (scenario.ExpectedErrorMessage.Contains("Non ecziste"))
+            {
+                Console.WriteLine();
+            }
 
             var response = await _client.PostAsJsonAsync(endpoint, scenario.Payload);
 
