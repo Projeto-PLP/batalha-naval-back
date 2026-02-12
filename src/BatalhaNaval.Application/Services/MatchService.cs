@@ -171,17 +171,26 @@ public class MatchService : IMatchService
         return new TurnResultDto(isHit, isSunk, match.IsFinished, match.WinnerId, isHit ? "Acertou!" : "Água.");
     }
     
-    // 4. GAMEPLAY: MOVIMENTO (Redis First)
+// 4. GAMEPLAY: MOVIMENTO (Redis First)
     public async Task ExecutePlayerMoveAsync(MoveShipInput input, Guid playerId)
     {
         var match = await _stateRepository.GetStateAsync(input.MatchId);
         if (match == null) match = await GetMatchOrThrow(input.MatchId); // Fallback
 
+        // Executa o movimento
         match.ExecuteShipMovement(playerId, input.ShipId, input.Direction.Value);
+
+        // Verificamos se o turno caiu no colo da IA (por timeout)
+        // Se sim, precisamos acordá-la para jogar imediatamente.
+        if (match.Player2Id == null && match.CurrentTurnPlayerId == Guid.Empty) 
+        {
+            await ProcessAiTurnLoopAsync(match);
+        }
 
         await _stateRepository.SaveStateAsync(match);
         // await _repository.SaveAsync(match); // Opcional SQL
     }
+
 
     // 5. CONSULTA DE ESTADO (Redis First)
     public async Task<MatchGameStateDto> GetMatchStateAsync(Guid matchId, Guid playerId)
