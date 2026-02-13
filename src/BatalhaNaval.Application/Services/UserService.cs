@@ -56,24 +56,28 @@ public class UserService : IUserService
         return await _userRepository.ExistsAsync(id);
     }
 
-	public async Task<List<RankingEntryDto>> GetRankingAsync(){
-    //o repositório deve retornar os perfis ordenados por RankPoints DESC
-    var profiles = await _userRepository.GetTopPlayersAsync(100); 
-    
-    return profiles.Select(p => new RankingEntryDto(
-        p.UserId,
-        p.User.Username,
-        p.RankPoints,
-        p.Wins,
-        CalculateRank(p.RankPoints)
-    	)).ToList();
-	}
+    public async Task<List<RankingEntryDto>> GetRankingAsync()
+    {
+        //o repositório deve retornar os perfis ordenados por RankPoints DESC
+        var profiles = await _userRepository.GetTopPlayersAsync(100);
 
-	private string CalculateRank(int points) => points switch
-	{
-    	>= 5000 => "S",
-    	>= 3000 => "A",
-   	 	>= 1500 => "B",
-    	_ => "C"
-	};
+        return profiles.Select(p => new RankingEntryDto(
+            p.UserId,
+            p.User.Username,
+            p.RankPoints,
+            p.Wins,
+            CalculateRank(p.RankPoints)
+        )).ToList();
+    }
+
+    private string CalculateRank(int points)
+    {
+        return points switch
+        {
+            >= 5000 => "S",
+            >= 3000 => "A",
+            >= 1500 => "B",
+            _ => "C"
+        };
+    }
 }

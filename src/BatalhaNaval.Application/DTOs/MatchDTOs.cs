@@ -1,5 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations; // <--- IMPORTANTE: Adicione este using
+﻿using System.ComponentModel.DataAnnotations;
 using BatalhaNaval.Domain.Enums;
+
+// <--- IMPORTANTE: Adicione este using
 
 namespace BatalhaNaval.Application.DTOs;
 
@@ -30,12 +32,10 @@ public record ShootInput
 // Para evitar envio de movimento vazio
 public record MoveShipInput
 {
-    [Required]
-    public Guid MatchId { get; init; }
-    
-    [Required]
-    public Guid ShipId { get; init; }
-    
+    [Required] public Guid MatchId { get; init; }
+
+    [Required] public Guid ShipId { get; init; }
+
     [Required(ErrorMessage = "A direção do movimento é obrigatória.")]
     public MoveDirection? Direction { get; init; } // Enum nullable
 }
@@ -61,23 +61,23 @@ public record MatchGameStateDto(
     Guid MatchId,
     MatchStatus Status,
     Guid CurrentTurnPlayerId,
-    bool IsMyTurn,              // Facilita pro Frontend saber se habilita os controles
+    bool IsMyTurn, // Facilita pro Frontend saber se habilita os controles
     Guid? WinnerId,
-    BoardStateDto MyBoard,      // Tabuleiro do jogador (vê tudo)
-    BoardStateDto OpponentBoard,// Tabuleiro do oponente (mascarado)
+    BoardStateDto MyBoard, // Tabuleiro do jogador (vê tudo)
+    BoardStateDto OpponentBoard, // Tabuleiro do oponente (mascarado)
     MatchStatsDto Stats
 );
 
 public record BoardStateDto(
     List<List<CellState>> Grid, // A matriz visual 10x10
-    List<ShipDto>? Ships        // Lista de navios (Null ou vazia para o oponente)
+    List<ShipDto>? Ships // Lista de navios (Null ou vazia para o oponente)
 );
 
 public record ShipDto(
-    Guid Id, 
-    string Name, 
-    int Size, 
-    bool IsSunk, 
+    Guid Id,
+    string Name,
+    int Size,
+    bool IsSunk,
     ShipOrientation Orientation,
     List<CoordinateDto> Coordinates
 );
@@ -85,8 +85,8 @@ public record ShipDto(
 public record CoordinateDto(int X, int Y, bool IsHit);
 
 public record MatchStatsDto(
-    int MyHits, 
-    int MyStreak, 
-    int OpponentHits, 
+    int MyHits,
+    int MyStreak,
+    int OpponentHits,
     int OpponentStreak
 );

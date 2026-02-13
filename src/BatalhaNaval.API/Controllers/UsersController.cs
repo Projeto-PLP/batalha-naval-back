@@ -93,32 +93,32 @@ public class UsersController : ControllerBase
     }
 
 
-	/// <summary>
-	///     Obtem o ranking global de jogadores.
-	/// </summary>
-	/// <remarks>
-	///     Retorna uma lista dos melhores jogadores baseada em pontos de ranking, 
-	///     incluindo a classificação em categorias (S, A, B, C). Os dados são cacheados por 5 minutos.
-	/// </remarks>
-	/// <response code="200">Ranking obtido com sucesso.</response>
-	/// <response code="500">Erro interno ao processar o ranking.</response>
-	[HttpGet("player_stats")]
-	[Authorize]
+    /// <summary>
+    ///     Obtem o ranking global de jogadores.
+    /// </summary>
+    /// <remarks>
+    ///     Retorna uma lista dos melhores jogadores baseada em pontos de ranking,
+    ///     incluindo a classificação em categorias (S, A, B, C). Os dados são cacheados por 5 minutos.
+    /// </remarks>
+    /// <response code="200">Ranking obtido com sucesso.</response>
+    /// <response code="500">Erro interno ao processar o ranking.</response>
+    [HttpGet("player_stats")]
+    [Authorize]
     [ProducesResponseType(typeof(UserProfileDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-	public async Task<IActionResult> GetRanking()
-	{
-    	const string cacheKey = "global_ranking";
-    	var cachedRanking = await _cacheService.GetAsync<List<RankingEntryDto>>(cacheKey);
-    
-    	if (cachedRanking != null) return Ok(cachedRanking);
+    public async Task<IActionResult> GetRanking()
+    {
+        const string cacheKey = "global_ranking";
+        var cachedRanking = await _cacheService.GetAsync<List<RankingEntryDto>>(cacheKey);
 
-    	var ranking = await _userService.GetRankingAsync();
-    
-    	//cache de 5 minutos eh suficiente
-    	await _cacheService.SetAsync(cacheKey, ranking, TimeSpan.FromMinutes(5));
-    
-    	return Ok(ranking);
-	}
+        if (cachedRanking != null) return Ok(cachedRanking);
+
+        var ranking = await _userService.GetRankingAsync();
+
+        //cache de 5 minutos eh suficiente
+        await _cacheService.SetAsync(cacheKey, ranking, TimeSpan.FromMinutes(5));
+
+        return Ok(ranking);
+    }
 }

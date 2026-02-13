@@ -32,13 +32,13 @@ public class MatchRepository : IMatchRepository
             // CENÁRIO A: A entidade já está na memória (Tracked).
             // Isso acontece quando carregamos via GetByIdAsync e modificamos.
             // AÇÃO: Forçamos a marcação de 'Modified' nas colunas críticas (JSON)
-            
+
             entry.State = EntityState.Modified; // Marca tudo como modificado por segurança
 
             // Força explicitamente as propriedades JSON
             entry.Property(p => p.Player1Board).IsModified = true;
             entry.Property(p => p.Player2Board).IsModified = true;
-            
+
             // Força propriedades de estado que mudam frequentemente
             entry.Property(p => p.Status).IsModified = true;
             entry.Property(p => p.CurrentTurnPlayerId).IsModified = true;
@@ -58,15 +58,11 @@ public class MatchRepository : IMatchRepository
             var exists = await _context.Matches.AnyAsync(m => m.Id == match.Id);
 
             if (exists)
-            {
                 // Se JÁ EXISTE no banco -> UPDATE
                 _context.Matches.Update(match);
-            }
             else
-            {
                 // Se NÃO EXISTE no banco -> INSERT
                 await _context.Matches.AddAsync(match);
-            }
         }
 
         await _context.SaveChangesAsync();

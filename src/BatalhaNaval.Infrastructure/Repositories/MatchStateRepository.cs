@@ -7,19 +7,18 @@ namespace BatalhaNaval.Infrastructure.Repositories;
 
 public class MatchStateRepository : IMatchStateRepository
 {
-    private readonly IDistributedCache _cache;
-    private readonly JsonSerializerOptions _jsonOptions;
-
     // Prefixo para organizar as chaves no Redis (ex: "match:GUID")
     private const string KeyPrefix = "match";
+    private readonly IDistributedCache _cache;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public MatchStateRepository(IDistributedCache cache)
     {
         _cache = cache;
-        
+
         // Configurações de Serialização para garantir que o DTO seja salvo corretamente
-        _jsonOptions = new JsonSerializerOptions 
-        { 
+        _jsonOptions = new JsonSerializerOptions
+        {
             PropertyNameCaseInsensitive = true,
             WriteIndented = false // False para economizar bytes no Redis
         };
@@ -32,14 +31,14 @@ public class MatchStateRepository : IMatchStateRepository
 
         // 2. Serializa para JSON
         var json = JsonSerializer.Serialize(dto, _jsonOptions);
-        
+
         // 3. Define a chave e o tempo de vida (TTL)
         var key = $"{KeyPrefix}:{match.Id}";
-        
+
         var options = new DistributedCacheEntryOptions
         {
             // O jogo expira se ficar 1 hora sem interação (Slide)
-            SlidingExpiration = TimeSpan.FromHours(1) 
+            SlidingExpiration = TimeSpan.FromHours(1)
         };
 
         // 4. Salva no Redis
@@ -51,14 +50,14 @@ public class MatchStateRepository : IMatchStateRepository
         var key = $"{KeyPrefix}:{matchId}";
         var json = await _cache.GetStringAsync(key);
 
-        if (string.IsNullOrEmpty(json)) 
+        if (string.IsNullOrEmpty(json))
             return null;
 
-        try 
+        try
         {
             // 1. Deserializa JSON -> DTO
             var dto = JsonSerializer.Deserialize<MatchRedis>(json, _jsonOptions);
-            
+
             if (dto == null) return null;
 
             // 2. Converte DTO -> Domain (Reconstrução / Hidratação)

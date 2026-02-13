@@ -14,6 +14,6 @@ public interface IMatchService
     // O turno da IA pode ser disparado automaticamente após o turno do jogador
 
     Task CancelMatchAsync(Guid matchId, Guid playerId);
-    
+
     Task<MatchGameStateDto> GetMatchStateAsync(Guid matchId, Guid playerId);
 }

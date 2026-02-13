@@ -7,22 +7,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
-        <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
-        <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
-        <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0"/>
+        <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0"/>
+        <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0"/>
+        <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1"/>
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
-        <PackageReference Include="Scalar.AspNetCore" Version="2.12.22" />
+        <PackageReference Include="Scalar.AspNetCore" Version="2.12.22"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\BatalhaNaval.Application\BatalhaNaval.Application.csproj" />
-        <ProjectReference Include="..\BatalhaNaval.Infrastructure\BatalhaNaval.Infrastructure.csproj" />
+        <ProjectReference Include="..\BatalhaNaval.Application\BatalhaNaval.Application.csproj"/>
+        <ProjectReference Include="..\BatalhaNaval.Infrastructure\BatalhaNaval.Infrastructure.csproj"/>
     </ItemGroup>
 
 </Project>

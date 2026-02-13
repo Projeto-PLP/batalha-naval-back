@@ -6,11 +6,12 @@ namespace BatalhaNaval.Domain.Entities;
 
 public class Ship
 {
-
     // CONSTRUTOR PARA SERIALIZADOR
     [JsonConstructor]
-    private Ship() { }
-    
+    private Ship()
+    {
+    }
+
 
     // Usado pelo Match.FromRedisDto
     public Ship(Guid id, string name, int size, List<Coordinate> coordinates, ShipOrientation orientation)
@@ -21,7 +22,7 @@ public class Ship
         Coordinates = coordinates;
         Orientation = orientation;
     }
-    
+
     // Usado pelo MatchService 
     public Ship(string name, int size, List<Coordinate> coordinates, ShipOrientation orientation)
     {
@@ -35,17 +36,17 @@ public class Ship
         Coordinates = coordinates;
         Orientation = orientation;
     }
-    
+
     // PROPRIEDADES
     public Guid Id { get; private set; }
     public string Name { get; private set; }
-    public int Size { get; private set; }
-    public ShipOrientation Orientation { get; private set; }
+    public int Size { get; }
+    public ShipOrientation Orientation { get; }
     public List<Coordinate> Coordinates { get; private set; }
 
     public bool IsSunk => Coordinates != null && Coordinates.All(c => c.IsHit);
     public bool HasBeenHit => Coordinates != null && Coordinates.Any(c => c.IsHit);
-    
+
     // MÉTODOS DE DOMÍNIO
 
     public List<Coordinate> PredictMovement(MoveDirection direction)

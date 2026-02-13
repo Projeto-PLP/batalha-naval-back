@@ -1,6 +1,6 @@
-﻿using FluentValidation;
-using BatalhaNaval.Application.DTOs;
+﻿using BatalhaNaval.Application.DTOs;
 using BatalhaNaval.Domain.Enums;
+using FluentValidation;
 
 namespace BatalhaNaval.Application.Validators;
 
@@ -12,7 +12,9 @@ public class PlaceShipsValidator : AbstractValidator<PlaceShipsInput>
 
         RuleFor(x => x.Ships)
             .NotEmpty().WithMessage("A lista de navios não pode estar vazia.")
-            .Must(HaveCorrectFleetComposition).WithMessage("A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1).");
+            .Must(HaveCorrectFleetComposition)
+            .WithMessage(
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1).");
 
         RuleForEach(x => x.Ships).SetValidator(new ShipPlacementValidator());
     }
@@ -37,14 +39,14 @@ public class ShipPlacementValidator : AbstractValidator<ShipPlacementDto>
         RuleFor(s => s.StartX).InclusiveBetween(0, 9);
         RuleFor(s => s.StartY).InclusiveBetween(0, 9);
         RuleFor(s => s.Orientation).IsInEnum();
-        
+
         RuleFor(s => s).Must(FitInBoard).WithMessage("O navio ultrapassa os limites do tabuleiro.");
     }
 
     private bool FitInBoard(ShipPlacementDto ship)
     {
-        int endX = ship.Orientation == ShipOrientation.Horizontal ? ship.StartX + ship.Size - 1 : ship.StartX;
-        int endY = ship.Orientation == ShipOrientation.Vertical ? ship.StartY + ship.Size - 1 : ship.StartY;
+        var endX = ship.Orientation == ShipOrientation.Horizontal ? ship.StartX + ship.Size - 1 : ship.StartX;
+        var endY = ship.Orientation == ShipOrientation.Vertical ? ship.StartY + ship.Size - 1 : ship.StartY;
         return endX < 10 && endY < 10;
     }
 }

@@ -27,7 +27,7 @@ var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<stri
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("front-cors",policy =>
+    options.AddPolicy("front-cors", policy =>
     {
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
@@ -78,7 +78,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "A ConnectionString 'DefaultConnection' não foi encontrada no appsettings.json.");
 
 // TODO avaliar unificação da configuração do DbContext para evitar conflitos (comentado abaixo)
-builder.Services.AddDbContext<BatalhaNavalDbContext>(options => 
+builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>

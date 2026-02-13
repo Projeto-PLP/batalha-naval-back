@@ -109,7 +109,7 @@ public class MatchController : ControllerBase
     public async Task<IActionResult> MoveShip([FromBody] MoveShipInput input)
     {
         var playerId = User.GetUserId();
-        
+
         await _matchService.ExecutePlayerMoveAsync(input, playerId);
 
         return Ok(new { message = "Navio movido com sucesso." });
@@ -141,7 +141,7 @@ public class MatchController : ControllerBase
 
         return NoContent();
     }
-    
+
     /// <summary>
     ///     Obtém o estado atual da partida (Com Fog of War).
     /// </summary>
@@ -155,9 +155,9 @@ public class MatchController : ControllerBase
     public async Task<IActionResult> GetMatchState(Guid id)
     {
         var playerId = User.GetUserId();
-        
+
         var state = await _matchService.GetMatchStateAsync(id, playerId);
-        
+
         return Ok(state);
     }
 }

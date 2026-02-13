@@ -9,5 +9,5 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id);
     Task<bool> ExistsByUsernameAsync(string username);
     Task<bool> ExistsAsync(Guid id);
-	Task<List<PlayerProfile>> GetTopPlayersAsync(int count);
+    Task<List<PlayerProfile>> GetTopPlayersAsync(int count);
 }

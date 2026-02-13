@@ -293,20 +293,24 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                     Ships = GetDefaultFleet().Concat([
                         new ShipPlacementDto("Porta-Aviões", 6, 0, 9, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with absenting carriers",
                 new { MatchId = matchIdReal, Ships = GetDefaultFleet().Where((ship, index) => index != 1) },
-                HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with exceeding destroyers",
                 new
                 {
                     MatchId = matchIdReal,
                     Ships = GetDefaultFleet()
                         .Concat([new ShipPlacementDto("Destroyer", 4, 0, 9, ShipOrientation.Horizontal)])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with absenting destroyers",
                 new { MatchId = matchIdReal, Ships = GetDefaultFleet().Where((ship, index) => index != 3) },
-                HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with exceeding battleships",
                 new
                 {
@@ -314,20 +318,24 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                     Ships = GetDefaultFleet().Concat([
                         new ShipPlacementDto("Encouraçado", 3, 0, 9, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships without battleships",
                 new { MatchId = matchIdReal, Ships = GetDefaultFleet().Where((ship, index) => index != 4) },
-                HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with exceeding submarines observers",
                 new
                 {
                     MatchId = matchIdReal,
                     Ships = GetDefaultFleet()
                         .Concat([new ShipPlacementDto("Patrulha", 1, 0, 9, ShipOrientation.Horizontal)])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships without submarines observers",
                 new { MatchId = matchIdReal, Ships = GetDefaultFleet().Where((ship, index) => index != 5) },
-                HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with wrong carriers size",
                 new
                 {
@@ -336,7 +344,8 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                         new ShipPlacementDto("Porta-Aviões", 5, 0, 0, ShipOrientation.Horizontal),
                         new ShipPlacementDto("Porta-Aviões", 6, 0, 3, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with wrong destroyers size",
                 new
                 {
@@ -345,7 +354,8 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                         new ShipPlacementDto("Destroyer", 5, 0, 3, ShipOrientation.Horizontal),
                         new ShipPlacementDto("Destroyer", 3, 6, 1, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with wrong battleship size",
                 new
                 {
@@ -353,7 +363,8 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                     Ships = GetDefaultFleet().Where(s => s.Size != 3).Concat([
                         new ShipPlacementDto("Encouraçado", 2, 0, 2, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with wrong submarine observer size",
                 new
                 {
@@ -361,7 +372,8 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
                     Ships = GetDefaultFleet().Where(s => s.Size != 1).Concat([
                         new ShipPlacementDto("Patrulha", 2, 3, 2, ShipOrientation.Horizontal)
                     ])
-                }, HttpStatusCode.BadRequest, "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
+                }, HttpStatusCode.BadRequest,
+                "A frota deve conter: 2 Porta-Aviões (6), 2 Navios de guerra (4), 1 Encouraçado (3), e 1 Submarino (1)."),
             new("Correct matchId and list of ships with position overlay",
                 new
                 {
@@ -464,10 +476,7 @@ public class MatchTests : IClassFixture<IntegrationTestWebAppFactory>
         {
             if (scenario?.Deactivated is true) continue;
 
-            if (scenario.ExpectedErrorMessage.Contains("Non ecziste"))
-            {
-                Console.WriteLine();
-            }
+            if (scenario.ExpectedErrorMessage.Contains("Non ecziste")) Console.WriteLine();
 
             var response = await _client.PostAsJsonAsync(endpoint, scenario.Payload);
 

@@ -46,12 +46,13 @@ public class UserRepository : IUserRepository
     {
         return await _context.Users.AnyAsync(u => u.Id == id);
     }
-	
-	public async Task<List<PlayerProfile>> GetTopPlayersAsync(int count) {
-    	return await _context.PlayerProfiles
-        	.Include(p => p.User) //para pegar o Username no DTO do ranking
-        	.OrderByDescending(p => p.RankPoints)
-        	.Take(count)
-        	.ToListAsync();
-	}
+
+    public async Task<List<PlayerProfile>> GetTopPlayersAsync(int count)
+    {
+        return await _context.PlayerProfiles
+            .Include(p => p.User) //para pegar o Username no DTO do ranking
+            .OrderByDescending(p => p.RankPoints)
+            .Take(count)
+            .ToListAsync();
+    }
 }

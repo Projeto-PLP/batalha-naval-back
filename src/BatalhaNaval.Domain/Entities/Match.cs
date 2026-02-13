@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations.Schema;
 using BatalhaNaval.Domain.Enums;
-using System.Linq;
 using BatalhaNaval.Domain.ValueObjects;
 
 namespace BatalhaNaval.Domain.Entities;
@@ -10,25 +9,6 @@ public class Match
 {
     private bool _player1Ready;
     private bool _player2Ready;
-
-    // ====================================================================
-    // ESTATÍSTICAS E CONTROLE DE ESTADO
-    // ====================================================================
-    
-    [Column("player1_hits")]
-    public int Player1Hits { get; private set; }
-    
-    [Column("player2_hits")]
-    public int Player2Hits { get; private set; }
-    
-    [Column("player1_consecutive_hits")]
-    public int Player1ConsecutiveHits { get; private set; }
-    
-    [Column("player2_consecutive_hits")]
-    public int Player2ConsecutiveHits { get; private set; }
-    
-    [Column("has_moved_this_turn")]
-    public bool HasMovedThisTurn { get; private set; }
 
     // ====================================================================
     // CONSTRUTOR
@@ -50,6 +30,20 @@ public class Match
     }
 
     // ====================================================================
+    // ESTATÍSTICAS E CONTROLE DE ESTADO
+    // ====================================================================
+
+    [Column("player1_hits")] public int Player1Hits { get; private set; }
+
+    [Column("player2_hits")] public int Player2Hits { get; private set; }
+
+    [Column("player1_consecutive_hits")] public int Player1ConsecutiveHits { get; private set; }
+
+    [Column("player2_consecutive_hits")] public int Player2ConsecutiveHits { get; private set; }
+
+    [Column("has_moved_this_turn")] public bool HasMovedThisTurn { get; private set; }
+
+    // ====================================================================
     // PROPRIEDADES PRINCIPAIS
     // ====================================================================
 
@@ -68,11 +62,10 @@ public class Match
     [Description("Tabuleiro do jogador 2")]
     public Board Player2Board { get; private set; }
 
-    [Description("Modo de jogo")] 
-    public GameMode Mode { get; }
+    [Description("Modo de jogo")] public GameMode Mode { get; }
 
     [Description("Dificuldade da IA, se aplicável")]
-    public Difficulty? AiDifficulty { get; private set; }
+    public Difficulty? AiDifficulty { get; }
 
     [Description("Status atual da partida")]
     [Column("status")]
@@ -93,7 +86,7 @@ public class Match
     public Guid? WinnerId { get; set; }
 
     [Description("Data e hora de início da partida")]
-    public DateTime StartedAt { get; private set; } 
+    public DateTime StartedAt { get; private set; }
 
     [Description("Data e hora do último movimento")]
     public DateTime LastMoveAt { get; private set; }
@@ -106,33 +99,33 @@ public class Match
     {
         return new MatchRedis
         {
-            MatchId = this.Id.ToString(),
-            Player1Id = this.Player1Id.ToString(),
-            Player2Id = this.Player2Id?.ToString(),
-            GameMode = MapGameModeToRedis(this.Mode),
-            AiDifficulty = this.AiDifficulty.HasValue ? MapDifficultyToRedis(this.AiDifficulty.Value) : null,
-            Status = MapStatusToRedis(this.Status),
-            
-            TurnPlayerId = this.CurrentTurnPlayerId.ToString(),
-            TurnStartedAt = new DateTimeOffset(this.LastMoveAt).ToUnixTimeSeconds(),
-            
+            MatchId = Id.ToString(),
+            Player1Id = Player1Id.ToString(),
+            Player2Id = Player2Id?.ToString(),
+            GameMode = MapGameModeToRedis(Mode),
+            AiDifficulty = AiDifficulty.HasValue ? MapDifficultyToRedis(AiDifficulty.Value) : null,
+            Status = MapStatusToRedis(Status),
+
+            TurnPlayerId = CurrentTurnPlayerId.ToString(),
+            TurnStartedAt = new DateTimeOffset(LastMoveAt).ToUnixTimeSeconds(),
+
             // Mapeia Stats
-            P1_Stats = new PlayerStatsRedis 
-            { 
-                Hits = this.Player1Hits, 
-                Streak = this.Player1ConsecutiveHits 
+            P1_Stats = new PlayerStatsRedis
+            {
+                Hits = Player1Hits,
+                Streak = Player1ConsecutiveHits
             },
-            P2_Stats = new PlayerStatsRedis 
-            { 
-                Hits = this.Player2Hits, 
-                Streak = this.Player2ConsecutiveHits 
+            P2_Stats = new PlayerStatsRedis
+            {
+                Hits = Player2Hits,
+                Streak = Player2ConsecutiveHits
             },
 
             // Mapeia Tabuleiros
             Boards = new MatchBoardsRedis
             {
-                P1 = MapBoardToRedis(this.Player1Board),
-                P2 = MapBoardToRedis(this.Player2Board)
+                P1 = MapBoardToRedis(Player1Board),
+                P2 = MapBoardToRedis(Player2Board)
             }
         };
     }
@@ -153,7 +146,7 @@ public class Match
         match.Status = MapStatusFromRedis(dto.Status);
         match.CurrentTurnPlayerId = string.IsNullOrEmpty(dto.TurnPlayerId) ? Guid.Empty : Guid.Parse(dto.TurnPlayerId);
         match.LastMoveAt = DateTimeOffset.FromUnixTimeSeconds(dto.TurnStartedAt).UtcDateTime;
-        
+
         // Stats
         match.Player1Hits = dto.P1_Stats.Hits;
         match.Player1ConsecutiveHits = dto.P1_Stats.Streak;
@@ -176,31 +169,31 @@ public class Match
             AliveShips = board.Ships.Count(s => !s.IsSunk),
             OceanGrid = new Dictionary<string, int>()
         };
-        
-        for (int x = 0; x < Board.Size; x++)
+
+        for (var x = 0; x < Board.Size; x++)
+        for (var y = 0; y < Board.Size; y++)
         {
-            for (int y = 0; y < Board.Size; y++)
-            {
-                var cell = board.Cells[x][y];
-                // Mapeamos apenas o que não é água
-                if (cell == CellState.Hit) redisBoard.OceanGrid[$"{x},{y}"] = 1;
-                else if (cell == CellState.Missed) redisBoard.OceanGrid[$"{x},{y}"] = 0;
-            }
+            var cell = board.Cells[x][y];
+            // Mapeamos apenas o que não é água
+            if (cell == CellState.Hit) redisBoard.OceanGrid[$"{x},{y}"] = 1;
+            else if (cell == CellState.Missed) redisBoard.OceanGrid[$"{x},{y}"] = 0;
         }
 
         // Mapeia Navios
         redisBoard.Ships = board.Ships.Select(s => new ShipRedis
         {
-            Id = s.Id.ToString(), 
+            Id = s.Id.ToString(),
             Type = s.Name,
             Size = s.Size,
             Sunk = s.IsSunk,
-            Orientation = s.Orientation == ShipOrientation.Horizontal ? ShipOrientationRedis.HORIZONTAL : ShipOrientationRedis.VERTICAL,
-            Segments = s.Coordinates.Select(c => new ShipSegmentRedis 
-            { 
-                X = c.X, 
-                Y = c.Y, 
-                Hit = c.IsHit 
+            Orientation = s.Orientation == ShipOrientation.Horizontal
+                ? ShipOrientationRedis.HORIZONTAL
+                : ShipOrientationRedis.VERTICAL,
+            Segments = s.Coordinates.Select(c => new ShipSegmentRedis
+            {
+                X = c.X,
+                Y = c.Y,
+                Hit = c.IsHit
             }).ToList()
         }).ToList();
 
@@ -210,15 +203,17 @@ public class Match
     private static Board MapBoardFromRedis(PlayerBoardRedis dto)
     {
         var board = new Board();
-        
+
         // 1. Reconstrói os Navios (No tabuleiro limpo), Isso evita que o AddShip falhe ao encontrar uma célula já marcada como Hit
         foreach (var shipDto in dto.Ships)
         {
             var coords = shipDto.Segments.Select(s => new Coordinate(s.X, s.Y) { IsHit = s.Hit }).ToList();
-            var orientation = shipDto.Orientation == ShipOrientationRedis.HORIZONTAL ? ShipOrientation.Horizontal : ShipOrientation.Vertical;
-            
+            var orientation = shipDto.Orientation == ShipOrientationRedis.HORIZONTAL
+                ? ShipOrientation.Horizontal
+                : ShipOrientation.Vertical;
+
             var shipId = Guid.Parse(shipDto.Id);
-            
+
             var ship = new Ship(shipId, shipDto.Type, shipDto.Size, coords, orientation);
             board.AddShip(ship);
         }
@@ -227,8 +222,8 @@ public class Match
         foreach (var kvp in dto.OceanGrid)
         {
             var coords = kvp.Key.Split(',');
-            int x = int.Parse(coords[0]);
-            int y = int.Parse(coords[1]);
+            var x = int.Parse(coords[0]);
+            var y = int.Parse(coords[1]);
             // 1 = Hit, 0 = Missed
             // Aqui sobrescrevemos o estado da célula, o que é permitido
             board.Cells[x][y] = kvp.Value == 1 ? CellState.Hit : CellState.Missed;
@@ -238,40 +233,59 @@ public class Match
     }
 
     // Mappers de Enum
-    private static GameModeRedis MapGameModeToRedis(GameMode mode) => mode == GameMode.Classic ? GameModeRedis.CLASSIC : GameModeRedis.DYNAMIC;
-    private static GameMode MapGameModeFromRedis(GameModeRedis mode) => mode == GameModeRedis.CLASSIC ? GameMode.Classic : GameMode.Dynamic;
-
-    private static MatchStatusRedis MapStatusToRedis(MatchStatus status) => status switch
+    private static GameModeRedis MapGameModeToRedis(GameMode mode)
     {
-        MatchStatus.Setup => MatchStatusRedis.SETUP,
-        MatchStatus.InProgress => MatchStatusRedis.IN_PROGRESS,
-        MatchStatus.Finished => MatchStatusRedis.FINISHED,
-        _ => MatchStatusRedis.SETUP
-    };
+        return mode == GameMode.Classic ? GameModeRedis.CLASSIC : GameModeRedis.DYNAMIC;
+    }
 
-    private static MatchStatus MapStatusFromRedis(MatchStatusRedis status) => status switch
+    private static GameMode MapGameModeFromRedis(GameModeRedis mode)
     {
-        MatchStatusRedis.SETUP => MatchStatus.Setup,
-        MatchStatusRedis.IN_PROGRESS => MatchStatus.InProgress,
-        MatchStatusRedis.FINISHED => MatchStatus.Finished,
-        _ => MatchStatus.Setup
-    };
+        return mode == GameModeRedis.CLASSIC ? GameMode.Classic : GameMode.Dynamic;
+    }
 
-    private static AiDifficultyRedis MapDifficultyToRedis(Difficulty diff) => diff switch
+    private static MatchStatusRedis MapStatusToRedis(MatchStatus status)
     {
-        Difficulty.Basic => AiDifficultyRedis.BASIC,
-        Difficulty.Intermediate => AiDifficultyRedis.INTERMEDIATE,
-        Difficulty.Advanced => AiDifficultyRedis.ADVANCED,
-        _ => AiDifficultyRedis.BASIC
-    };
+        return status switch
+        {
+            MatchStatus.Setup => MatchStatusRedis.SETUP,
+            MatchStatus.InProgress => MatchStatusRedis.IN_PROGRESS,
+            MatchStatus.Finished => MatchStatusRedis.FINISHED,
+            _ => MatchStatusRedis.SETUP
+        };
+    }
 
-    private static Difficulty MapDifficultyFromRedis(AiDifficultyRedis diff) => diff switch
+    private static MatchStatus MapStatusFromRedis(MatchStatusRedis status)
     {
-        AiDifficultyRedis.BASIC => Difficulty.Basic,
-        AiDifficultyRedis.INTERMEDIATE => Difficulty.Intermediate,
-        AiDifficultyRedis.ADVANCED => Difficulty.Advanced,
-        _ => Difficulty.Basic
-    };
+        return status switch
+        {
+            MatchStatusRedis.SETUP => MatchStatus.Setup,
+            MatchStatusRedis.IN_PROGRESS => MatchStatus.InProgress,
+            MatchStatusRedis.FINISHED => MatchStatus.Finished,
+            _ => MatchStatus.Setup
+        };
+    }
+
+    private static AiDifficultyRedis MapDifficultyToRedis(Difficulty diff)
+    {
+        return diff switch
+        {
+            Difficulty.Basic => AiDifficultyRedis.BASIC,
+            Difficulty.Intermediate => AiDifficultyRedis.INTERMEDIATE,
+            Difficulty.Advanced => AiDifficultyRedis.ADVANCED,
+            _ => AiDifficultyRedis.BASIC
+        };
+    }
+
+    private static Difficulty MapDifficultyFromRedis(AiDifficultyRedis diff)
+    {
+        return diff switch
+        {
+            AiDifficultyRedis.BASIC => Difficulty.Basic,
+            AiDifficultyRedis.INTERMEDIATE => Difficulty.Intermediate,
+            AiDifficultyRedis.ADVANCED => Difficulty.Advanced,
+            _ => Difficulty.Basic
+        };
+    }
 
     // ====================================================================
     // LÓGICA DE NEGÓCIO
@@ -298,14 +312,10 @@ public class Match
         var starter = random.Next(2);
 
         if (starter == 0)
-        {
             CurrentTurnPlayerId = Player1Id;
-        }
         else
-        {
             CurrentTurnPlayerId = Player2Id ?? Guid.Empty;
-        }
-        
+
         HasMovedThisTurn = false;
     }
 
@@ -315,7 +325,7 @@ public class Match
 
         var targetBoard = playerId == Player1Id ? Player2Board : Player1Board;
 
-        bool isHit = targetBoard.ReceiveShot(x, y);
+        var isHit = targetBoard.ReceiveShot(x, y);
 
         if (isHit)
         {
@@ -337,17 +347,11 @@ public class Match
         }
 
         if (targetBoard.AllShipsSunk())
-        {
             FinishGame(playerId);
-        }
         else if (!isHit)
-        {
             SwitchTurn();
-        }
         else
-        {
             HasMovedThisTurn = false;
-        }
 
         LastMoveAt = DateTime.UtcNow;
         return isHit;
@@ -375,14 +379,11 @@ public class Match
     {
         if (Status != MatchStatus.InProgress) throw new InvalidOperationException("A partida não está em andamento.");
         if (IsFinishedOrTimeout()) throw new InvalidOperationException("Partida finalizada ou tempo esgotado.");
-        
-        if (playerId != Guid.Empty && playerId != CurrentTurnPlayerId) 
+
+        if (playerId != Guid.Empty && playerId != CurrentTurnPlayerId)
             throw new InvalidOperationException("Não é o seu turno.");
 
-        if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) 
-        {
-            SwitchTurn(); 
-        }
+        if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
     }
 
     private bool IsFinishedOrTimeout()
@@ -393,9 +394,9 @@ public class Match
     private void SwitchTurn()
     {
         CurrentTurnPlayerId = CurrentTurnPlayerId == Player1Id
-            ? Player2Id ?? Guid.Empty 
+            ? Player2Id ?? Guid.Empty
             : Player1Id;
-        
+
         HasMovedThisTurn = false;
     }
 
