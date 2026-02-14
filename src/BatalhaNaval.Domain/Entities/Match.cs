@@ -186,6 +186,7 @@ public class Match
             Type = s.Name,
             Size = s.Size,
             Sunk = s.IsSunk,
+            IsDamaged = s.HasBeenHit,
             Orientation = s.Orientation == ShipOrientation.Horizontal
                 ? ShipOrientationRedis.HORIZONTAL
                 : ShipOrientationRedis.VERTICAL,
