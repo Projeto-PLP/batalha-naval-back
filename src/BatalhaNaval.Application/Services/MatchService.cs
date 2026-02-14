@@ -80,6 +80,10 @@ public class MatchService : IMatchService
                 ? "Partida já encerrada."
                 : "Partida em andamento.");
 
+        // TODO Remover do match/board os arrays excedentes. Workaround para solucionar o problema parcialmente
+        match.Player1Board.Cells = match.Player1Board.Cells.Slice(0, 10);
+        match.Player2Board.Cells = match.Player2Board.Cells.Slice(0, 10);
+
         var board = playerId == match.Player1Id ? match.Player1Board : match.Player2Board;
 
         // Limpa navios anteriores se houver (para permitir reset no setup)

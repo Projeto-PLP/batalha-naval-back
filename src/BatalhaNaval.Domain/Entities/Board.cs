@@ -22,7 +22,7 @@ public class Board
     public List<Ship> Ships { get; } = new();
 
     // Representação visual do tabuleiro
-    public List<List<CellState>> Cells { get; }
+    public List<List<CellState>> Cells { get; set; }
 
     public void AddShip(Ship ship)
     {
