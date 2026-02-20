@@ -1,9 +1,11 @@
-﻿using BatalhaNaval.Domain.Entities;
+﻿using System.Text.Json;
+using BatalhaNaval.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace BatalhaNaval.Infrastructure.Persistence.Configurations;
 
@@ -36,15 +38,19 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
             .HasColumnName("status");
 
         // --- CONVERSORES PARA BOARD (JSONB) ---
-
+        
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = false
+        };
         // Conversor explícito
         var boardConverter = new ValueConverter<Board, string>(
-            v => JsonConvert.SerializeObject(v),
-            v => JsonConvert.DeserializeObject<Board>(v) ?? new Board()
+            v => JsonSerializer.Serialize(v, jsonOptions),
+            v => JsonSerializer.Deserialize<Board>(v, jsonOptions) ?? new Board()
         );
 
         // O Comparer do Board é mais chato (objeto complexo). 
-        // Vamos forçar a serialização para comparar se mudou. É custoso mas seguro.
         var boardComparer = new ValueComparer<Board>(
             (c1, c2) => JsonConvert.SerializeObject(c1) == JsonConvert.SerializeObject(c2),
             c => JsonConvert.SerializeObject(c).GetHashCode(),
