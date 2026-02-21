@@ -80,9 +80,7 @@ public class MatchService : IMatchService
                 ? "Partida já encerrada."
                 : "Partida em andamento.");
 
-        // TODO Remover do match/board os arrays excedentes. Workaround para solucionar o problema parcialmente
-        match.Player1Board.Cells = match.Player1Board.Cells;
-        match.Player2Board.Cells = match.Player2Board.Cells;
+
 
         var board = playerId == match.Player1Id ? match.Player1Board : match.Player2Board;
 
@@ -115,9 +113,9 @@ public class MatchService : IMatchService
         if (match.Status == MatchStatus.InProgress)
         {
             await _stateRepository.SaveStateAsync(match);
-
-            // Kickstart da IA se for a vez dela
-            if (match.Player2Id == null && match.CurrentTurnPlayerId == Guid.Empty) await ProcessAiTurnLoopAsync(match);
+            // Kickstart da IA se for a vez dela ->  Nunca vai entrar aqui, pq mudei o starter pra player 1 começar contra a ia(ver regra q vai usar)
+            Console.WriteLine(match.CurrentTurnPlayerId);
+            if (match.Player2Id == null && match.CurrentTurnPlayerId == Guid.Empty) await ProcessAiTurnLoopAsync(match); 
         }
     }
 
@@ -256,6 +254,7 @@ public class MatchService : IMatchService
     // 6. IA LOOP
     private async Task ProcessAiTurnLoopAsync(Match match)
     {
+        Console.WriteLine(match.CurrentTurnPlayerId);
         while (match.CurrentTurnPlayerId == Guid.Empty && !match.IsFinished)
         {
             IAiStrategy strategy = match.AiDifficulty switch
