@@ -114,7 +114,6 @@ public class MatchService : IMatchService
         {
             await _stateRepository.SaveStateAsync(match);
             // Kickstart da IA se for a vez dela ->  Nunca vai entrar aqui, pq mudei o starter pra player 1 começar contra a ia(ver regra q vai usar)
-            Console.WriteLine(match.CurrentTurnPlayerId);
             if (match.Player2Id == null && match.CurrentTurnPlayerId == Guid.Empty) await ProcessAiTurnLoopAsync(match); 
         }
     }
@@ -254,7 +253,6 @@ public class MatchService : IMatchService
     // 6. IA LOOP
     private async Task ProcessAiTurnLoopAsync(Match match)
     {
-        Console.WriteLine(match.CurrentTurnPlayerId);
         while (match.CurrentTurnPlayerId == Guid.Empty && !match.IsFinished)
         {
             IAiStrategy strategy = match.AiDifficulty switch
