@@ -61,6 +61,7 @@ public class PlayerBoardRedis
     // Dicionário para validação de colisão e/ou movimento
     [JsonPropertyName("OceanGrid")] public Dictionary<string, int> OceanGrid { get; set; } = new();
 
+    [JsonPropertyName("ShotHistory")] public List<ShotLogRedis> ShotHistory { get; set; } = new();
     [JsonPropertyName("Ships")] public List<ShipRedis> Ships { get; set; } = new();
 }
 
@@ -82,6 +83,15 @@ public class ShipRedis
 }
 
 public class ShipSegmentRedis
+{
+    [JsonPropertyName("x")] public int X { get; set; }
+
+    [JsonPropertyName("y")] public int Y { get; set; }
+
+    [JsonPropertyName("hit")] public bool Hit { get; set; }
+}
+
+public class ShotLogRedis
 {
     [JsonPropertyName("x")] public int X { get; set; }
 

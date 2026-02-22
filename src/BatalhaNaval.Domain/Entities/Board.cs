@@ -7,6 +7,7 @@ namespace BatalhaNaval.Domain.Entities;
 public class Board
 {
     public const int Size = 10;
+    public List<Coordinate> ShotHistory { get; private set; } = new();
 
     public Board()
     {
@@ -24,18 +25,20 @@ public class Board
             Cells.Add(row);
         }
     }
+
     [JsonConstructor]
     private Board(List<List<CellState>> cells, List<Ship> ships)
     {
         Cells = cells;
         Ships = ships;
-        
+
         // Valida e corrige se veio errado do banco
         if (Cells.Count != Size)
         {
             InitializeGrid();
         }
     }
+
     public List<Ship> Ships { get; } = new();
 
     // Representação visual do tabuleiro
@@ -186,11 +189,13 @@ public class Board
 
             // Atualiza o visual do tabuleiro
             Cells[x][y] = CellState.Hit;
+            ShotHistory.Add(new Coordinate(x, y, true));
             return true; // Acertou
         }
 
         // 4. Se não acertou nada (Água)
         Cells[x][y] = CellState.Missed;
+        ShotHistory.Add(new Coordinate(x, y, false));
         return false; // Errou
     }
 

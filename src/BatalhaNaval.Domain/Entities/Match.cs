@@ -179,6 +179,13 @@ public class Match
             else if (cell == CellState.Missed) redisBoard.OceanGrid[$"{x},{y}"] = 0;
         }
 
+        redisBoard.ShotHistory = board.ShotHistory.Select(shot => new ShotLogRedis
+        {
+            X = shot.X,
+            Y = shot.Y,
+            Hit = shot.IsHit
+        }).ToList();
+
         // Mapeia Navios
         redisBoard.Ships = board.Ships.Select(s => new ShipRedis
         {
@@ -228,6 +235,11 @@ public class Match
             // 1 = Hit, 0 = Missed
             // Aqui sobrescrevemos o estado da célula, o que é permitido
             board.Cells[x][y] = kvp.Value == 1 ? CellState.Hit : CellState.Missed;
+        }
+
+        foreach (var shotDto in dto.ShotHistory)
+        {
+            board.ShotHistory.Add(new Coordinate(shotDto.X, shotDto.Y) { IsHit = shotDto.Hit });
         }
 
         return board;
@@ -315,7 +327,7 @@ public class Match
         if (starter == 0 || Player2Id == null) // Player 1 começa se é jogo contra IA
             CurrentTurnPlayerId = Player1Id;
         else
-            CurrentTurnPlayerId = (Guid) Player2Id ; 
+            CurrentTurnPlayerId = (Guid)Player2Id;
 
         HasMovedThisTurn = false;
     }
@@ -384,7 +396,7 @@ public class Match
         if (playerId != Guid.Empty && playerId != CurrentTurnPlayerId)
             throw new InvalidOperationException("Não é o seu turno.");
         //TODO: Colocar o turno corretamente, isso tava dando bug na troca
-       // if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
+        // if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
     }
 
     private bool IsFinishedOrTimeout()
