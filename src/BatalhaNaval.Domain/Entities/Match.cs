@@ -312,17 +312,17 @@ public class Match
         var random = new Random();
         var starter = random.Next(2);
 
-        if (starter == 0)
+        if (starter == 0 || Player2Id == null) // Player 1 começa se é jogo contra IA
             CurrentTurnPlayerId = Player1Id;
         else
-            CurrentTurnPlayerId = Player2Id ?? Guid.Empty;
+            CurrentTurnPlayerId = (Guid) Player2Id ; 
 
         HasMovedThisTurn = false;
     }
 
     public bool ExecuteShot(Guid playerId, int x, int y)
     {
-        ValidateTurn(playerId);
+        ValidateTurn(playerId); //TODO: Colocar o turno corretamente, isso tava dando bug na troca
 
         var targetBoard = playerId == Player1Id ? Player2Board : Player1Board;
 
@@ -383,8 +383,8 @@ public class Match
 
         if (playerId != Guid.Empty && playerId != CurrentTurnPlayerId)
             throw new InvalidOperationException("Não é o seu turno.");
-
-        if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
+        //TODO: Colocar o turno corretamente, isso tava dando bug na troca
+       // if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
     }
 
     private bool IsFinishedOrTimeout()

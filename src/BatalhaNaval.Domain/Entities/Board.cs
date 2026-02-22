@@ -1,4 +1,5 @@
-﻿using BatalhaNaval.Domain.Enums;
+﻿using System.Text.Json.Serialization;
+using BatalhaNaval.Domain.Enums;
 using BatalhaNaval.Domain.ValueObjects;
 
 namespace BatalhaNaval.Domain.Entities;
@@ -9,6 +10,11 @@ public class Board
 
     public Board()
     {
+        InitializeGrid();
+    }
+
+    private void InitializeGrid()
+    {
         // Inicializa a grade 10x10 com Água
         Cells = new List<List<CellState>>();
         for (var x = 0; x < Size; x++)
@@ -18,7 +24,18 @@ public class Board
             Cells.Add(row);
         }
     }
-
+    [JsonConstructor]
+    private Board(List<List<CellState>> cells, List<Ship> ships)
+    {
+        Cells = cells;
+        Ships = ships;
+        
+        // Valida e corrige se veio errado do banco
+        if (Cells.Count != Size)
+        {
+            InitializeGrid();
+        }
+    }
     public List<Ship> Ships { get; } = new();
 
     // Representação visual do tabuleiro
