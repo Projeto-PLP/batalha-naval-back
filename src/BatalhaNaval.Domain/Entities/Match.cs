@@ -435,7 +435,7 @@ public class Match
     private void FinishGame(Guid winnerId)
     {
         Status = MatchStatus.Finished;
-        WinnerId = winnerId;
+        WinnerId = winnerId == Guid.Empty ? null : winnerId;
         FinishedAt = DateTime.UtcNow;
         CurrentTurnPlayerId = Guid.Empty;
     }
