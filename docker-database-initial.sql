@@ -48,6 +48,11 @@ CREATE TABLE matches (
     -- Estatísticas da Partida (Hits Totais)
      player1_hits INTEGER NOT NULL DEFAULT 0,
      player2_hits INTEGER NOT NULL DEFAULT 0,
+     
+    -- Estatisticas de erros (Tiros Errados)
+    
+    player1_misses INTEGER NOT NULL DEFAULT 0,
+    player2_misses INTEGER NOT NULL DEFAULT 0,
 
     -- [NOVO] Estatísticas de Streak (Acertos Consecutivos Atuais)
      player1_consecutive_hits INTEGER NOT NULL DEFAULT 0,

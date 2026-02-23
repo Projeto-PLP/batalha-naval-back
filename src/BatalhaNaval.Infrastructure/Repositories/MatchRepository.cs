@@ -46,6 +46,8 @@ public class MatchRepository : IMatchRepository
             entry.Property(p => p.HasMovedThisTurn).IsModified = true;
             entry.Property(p => p.Player1Hits).IsModified = true;
             entry.Property(p => p.Player2Hits).IsModified = true;
+            entry.Property(p => p.Player1Misses).IsModified = true;
+            entry.Property(p => p.Player2Misses).IsModified = true;
             entry.Property(p => p.Player1ConsecutiveHits).IsModified = true;
             entry.Property(p => p.Player2ConsecutiveHits).IsModified = true;
         }

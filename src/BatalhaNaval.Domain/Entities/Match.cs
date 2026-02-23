@@ -40,6 +40,10 @@ public class Match
     [Column("player1_consecutive_hits")] public int Player1ConsecutiveHits { get; private set; }
 
     [Column("player2_consecutive_hits")] public int Player2ConsecutiveHits { get; private set; }
+    
+    //TOD0: Verificar estado no banco no match configuration, se vai mandar pro db
+    [Column(name:"player1_misses")] public int Player1Misses { get; set; } 
+    [Column(name:"player2_misses")] public int Player2Misses { get; set; }
 
     [Column("has_moved_this_turn")] public bool HasMovedThisTurn { get; private set; }
 
@@ -113,12 +117,15 @@ public class Match
             P1_Stats = new PlayerStatsRedis
             {
                 Hits = Player1Hits,
-                Streak = Player1ConsecutiveHits
+                Streak = Player1ConsecutiveHits,
+                Misses = Player1Misses
             },
             P2_Stats = new PlayerStatsRedis
             {
                 Hits = Player2Hits,
-                Streak = Player2ConsecutiveHits
+                Streak = Player2ConsecutiveHits,
+                Misses = Player2Misses
+
             },
 
             // Mapeia Tabuleiros
@@ -150,8 +157,10 @@ public class Match
         // Stats
         match.Player1Hits = dto.P1_Stats.Hits;
         match.Player1ConsecutiveHits = dto.P1_Stats.Streak;
+        match.Player1Misses = dto.P1_Stats.Misses;
         match.Player2Hits = dto.P2_Stats.Hits;
         match.Player2ConsecutiveHits = dto.P2_Stats.Streak;
+        match.Player2Misses = dto.P2_Stats.Misses;
 
         // Tabuleiros
         match.Player1Board = MapBoardFromRedis(dto.Boards.P1);
@@ -159,6 +168,7 @@ public class Match
 
         return match;
     }
+
 
     // --- Helpers de Mapeamento (Privados) ---
 
@@ -346,6 +356,7 @@ public class Match
             {
                 Player1Hits++;
                 Player1ConsecutiveHits++;
+                
             }
             else
             {
@@ -355,8 +366,16 @@ public class Match
         }
         else
         {
-            if (playerId == Player1Id) Player1ConsecutiveHits = 0;
-            else Player2ConsecutiveHits = 0;
+            if (playerId == Player1Id)
+            {
+                Player1ConsecutiveHits = 0; 
+                Player1Misses++;
+            }
+            else
+            {
+                Player2ConsecutiveHits = 0;
+                Player2Misses++;
+            }
         }
 
         if (targetBoard.AllShipsSunk())

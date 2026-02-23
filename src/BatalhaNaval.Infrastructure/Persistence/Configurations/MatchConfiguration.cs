@@ -78,5 +78,13 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Player2Hits)
             .HasColumnName("player2_hits")
             .IsRequired();
+        
+        builder.Property(m => m.Player1Misses)
+            .HasColumnName("player1_misses")
+            .IsRequired();    
+        
+        builder.Property(m => m.Player2Misses)
+            .HasColumnName("player2_misses")
+            .IsRequired();
     }
 }

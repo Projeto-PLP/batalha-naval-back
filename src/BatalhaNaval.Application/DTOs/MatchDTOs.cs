@@ -87,6 +87,8 @@ public record CoordinateDto(int X, int Y, bool IsHit);
 public record MatchStatsDto(
     int MyHits,
     int MyStreak,
+    int MyMisses,
     int OpponentHits,
-    int OpponentStreak
+    int OpponentStreak,
+    int OpponentMisses
 );

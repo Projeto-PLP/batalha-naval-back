@@ -205,8 +205,10 @@ public class MatchService : IMatchService
         var stats = new MatchStatsDto(
             isPlayer1 ? match.Player1Hits : match.Player2Hits,
             isPlayer1 ? match.Player1ConsecutiveHits : match.Player2ConsecutiveHits,
+            isPlayer1 ? match.Player1Misses : match.Player2Misses,
             isPlayer1 ? match.Player2Hits : match.Player1Hits,
-            isPlayer1 ? match.Player2ConsecutiveHits : match.Player1ConsecutiveHits
+            isPlayer1 ? match.Player2ConsecutiveHits : match.Player1ConsecutiveHits,
+            isPlayer1 ? match.Player2Misses : match.Player1Misses
         );
 
         return new MatchGameStateDto(
@@ -291,7 +293,7 @@ public class MatchService : IMatchService
         // comentado pra deixar expirar sozinho (permite consulta pós-jogo imediata, mas "segura os dados no redis por 1h")
         // await _stateRepository.DeleteStateAsync(match.Id);
 
-        // 4. Processa Pontos e Ranking (SQL)
+        // 4. Processa Pontos e Ranking (SQL) TODO:VERIFICAR SE VAI COLOCAR MISS AQUI RTAMBEM
         if (match.WinnerId.HasValue)
         {
             var winnerProfile = await _repository.GetUserProfileAsync(match.WinnerId.Value);
