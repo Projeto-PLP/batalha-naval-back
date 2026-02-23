@@ -21,8 +21,8 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Player1Id).HasColumnName("player1_id");
         builder.Property(m => m.Player2Id).HasColumnName("player2_id");
         builder.Property(m => m.WinnerId).HasColumnName("winner_id");
-        builder.Property(m => m.StartedAt).HasColumnName("started_at");
-        builder.Property(m => m.LastMoveAt).HasColumnName("last_move_at");
+        builder.Property(m => m.StartedAt).HasColumnName("started_at").IsRequired();
+        builder.Property(m => m.LastMoveAt).HasColumnName("last_move_at").IsRequired();
         builder.Property(m => m.CurrentTurnPlayerId).HasColumnName("current_turn_player_id");
 
         builder.Property(m => m.Mode)
@@ -42,7 +42,8 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         var jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
-            WriteIndented = false
+            WriteIndented = false,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
         };
         // Conversor explícito
         var boardConverter = new ValueConverter<Board, string>(
@@ -50,11 +51,10 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
             v => JsonSerializer.Deserialize<Board>(v, jsonOptions) ?? new Board()
         );
 
-        // O Comparer do Board é mais chato (objeto complexo). 
         var boardComparer = new ValueComparer<Board>(
-            (c1, c2) => JsonConvert.SerializeObject(c1) == JsonConvert.SerializeObject(c2),
-            c => JsonConvert.SerializeObject(c).GetHashCode(),
-            c => JsonConvert.DeserializeObject<Board>(JsonConvert.SerializeObject(c))!
+            (c1, c2) => JsonSerializer.Serialize(c1, jsonOptions) == JsonSerializer.Serialize(c2, jsonOptions),
+            c => JsonSerializer.Serialize(c, jsonOptions).GetHashCode(),
+            c => JsonSerializer.Deserialize<Board>(JsonSerializer.Serialize(c, jsonOptions), jsonOptions)!
         );
 
         builder.Property(m => m.Player1Board)
@@ -78,5 +78,17 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Player2Hits)
             .HasColumnName("player2_hits")
             .IsRequired();
+        
+        builder.Property(m => m.Player1Misses)
+            .HasColumnName("player1_misses")
+            .IsRequired();    
+        
+        builder.Property(m => m.Player2Misses)
+            .HasColumnName("player2_misses")
+            .IsRequired();
+        
+        builder.Property(m => m.HasMovedThisTurn)
+            .HasColumnName("has_moved_this_turn");
+
     }
 }

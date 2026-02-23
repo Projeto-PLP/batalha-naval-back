@@ -11,8 +11,7 @@ public class Ship
     private Ship()
     {
     }
-
-
+    
     // Usado pelo Match.FromRedisDto
     public Ship(Guid id, string name, int size, List<Coordinate> coordinates, ShipOrientation orientation)
     {
@@ -37,14 +36,16 @@ public class Ship
         Orientation = orientation;
     }
 
-    // PROPRIEDADES
-    public Guid Id { get; private set; }
-    public string Name { get; private set; }
-    public int Size { get; }
-    public ShipOrientation Orientation { get; }
-    public List<Coordinate> Coordinates { get; private set; }
+    // PROPRIEDADES -> nao remover os setters, mesmo que esteja indicando que nao sao usado, o serializador precisa.
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+    public int Size { get; set; }
+    public ShipOrientation Orientation { get; set; }
+    public List<Coordinate> Coordinates { get; set; }
 
+    [JsonIgnore]
     public bool IsSunk => Coordinates != null && Coordinates.All(c => c.IsHit);
+    [JsonIgnore]
     public bool HasBeenHit => Coordinates != null && Coordinates.Any(c => c.IsHit);
 
     // MÉTODOS DE DOMÍNIO

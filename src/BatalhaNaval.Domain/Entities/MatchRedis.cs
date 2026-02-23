@@ -8,7 +8,8 @@ public class MatchRedis
     [JsonPropertyName("MatchId")] public string MatchId { get; set; }
 
     [JsonPropertyName("GameMode")] public GameModeRedis GameMode { get; set; }
-
+    
+    [JsonPropertyName("StartedAt")]public long StartedAt { get; set; }
     [JsonPropertyName("AiDifficulty")] public AiDifficultyRedis? AiDifficulty { get; set; }
 
     [JsonPropertyName("Player1Id")] public string Player1Id { get; set; }

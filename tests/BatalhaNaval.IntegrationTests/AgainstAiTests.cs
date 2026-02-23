@@ -9,7 +9,7 @@ using BatalhaNaval.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.OpenApi;
+using Xunit.Abstractions;
 
 namespace BatalhaNaval.IntegrationTests;
 
@@ -21,7 +21,7 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
     private const string Endpoint = "/match";
     private const string EndpointSetup = $"{Endpoint}/setup";
     private const string EndpointShot = $"{Endpoint}/shot";
-
+    private readonly ITestOutputHelper _output;
     private readonly HttpClient _client;
     private readonly IntegrationTestWebAppFactory _factory;
 
@@ -29,10 +29,11 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
     private Guid _usuarioId;
     private Guid _matchId;
 
-    public AgainstAiTests(IntegrationTestWebAppFactory factory)
+    public AgainstAiTests(IntegrationTestWebAppFactory factory,ITestOutputHelper output)
     {
         _factory = factory;
         _client = factory.CreateClient();
+        _output = output;
     }
 
     [Fact]
@@ -65,8 +66,13 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
 
         // STEP 3: Executar Tiros, Esperar que a IA ganhe o jogo e Perder 
         await Passo_FuzilarTabuleiroDaIA(coordenadasIdeais);
+
+        // STEP 4: Validar a Base de Dados (Finalização do Jogo e Estatísticas)
+        await Passo_ValidarFimDeJogoNoBancoDeDadosFuzilarTabuleiroDaIA();
         
-        // TODO Implementar EDGE OF TOMORROW
+        //STEP 5:
+        await Passo_ValidarFimDeJogoNoRedisFuzilarTabuleiroDaIA();
+        
     }
 
     #region Steps
@@ -126,7 +132,7 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var cache = scope.ServiceProvider.GetRequiredService<IDistributedCache>();
-        
+
         var redisKey = $"match:{_matchId}";
 
         var matchJson = await cache.GetStringAsync(redisKey);
@@ -194,7 +200,6 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
     private async Task Passo_FuzilarNaviosDaIA(List<Coordinate> coordenadas)
     {
         int acertosEsperados = 0;
-
         foreach (var coord in coordenadas)
         {
             var shotResponse = await _client.PostAsJsonAsync(EndpointShot, new
@@ -224,10 +229,10 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
             var segmentoAtingido = navioAtingido?.Segments.First(seg => seg.X == coord.X && seg.Y == coord.Y);
 
             segmentoAtingido.Should().NotBeNull();
-            segmentoAtingido!.Hit.Should().BeTrue(
+            segmentoAtingido.Hit.Should().BeTrue(
                 "O tiro foi dado, mas a coordenada no Redis não mudou para Hit=true. " +
                 "Vá até a classe Board.cs e garanta que o método ReceiveShot() altera o estado do objeto Coordinate!");
-            matchState!.Boards.P1.OceanGrid.Count.Should().Be(0, "A IA não deveria ter tiros!");
+            matchState.Boards.P1.OceanGrid.Count.Should().Be(0, "A IA não deveria ter tiros!");
         }
     }
 
@@ -238,6 +243,9 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
 
         foreach (var coord in coordenadas)
         {
+            matchState = await ObterEstadoDoRedisAsync();
+            if (matchState.Status == MatchStatusRedis.FINISHED) break;
+
             var shotResponse = await _client.PostAsJsonAsync(EndpointShot, new
             {
                 MatchId = _matchId.ToString(),
@@ -245,71 +253,81 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
                 Y = coord.Y
             });
 
-            if (!shotResponse.StatusCode.GetDisplayName().Equals("OK"))
-            {
-                Console.WriteLine();
-            }
-
             shotResponse.StatusCode.Should().Be(HttpStatusCode.OK, "O tiro deve ser aceito pela API.");
             tirosNaAgua++;
 
             matchState = await ObterEstadoDoRedisAsync();
+            //validar p1 stats
 
             matchState!.P1_Stats.Hits.Should().Be(0,
                 $"O Redis atualizou os acertos! O esperado é NENHUM acerto, mas veio {matchState.P1_Stats.Hits}.");
 
-
             matchState!.P1_Stats.Misses.Should().Be(tirosNaAgua,
-                 $"O Redis não atualizou os erros! O esperado é {tirosNaAgua} tiro(s) perdido(s), mas veio {matchState.P1_Stats.Misses}.");
+                $"O Redis não atualizou os erros! O esperado é {tirosNaAgua} tiro(s) perdido(s), mas veio {matchState.P1_Stats.Misses}.");
 
             matchState!.P1_Stats.Streak.Should().Be(0,
                 $"O Redis atualizou os streaks! O esperado é NENHUM acerto, mas veio {matchState.P1_Stats.Streak}.");
 
-            var navioAtingido =
-                matchState.Boards.P2.Ships.FirstOrDefault(s =>
-                    s.Segments.Any(seg => seg.X == coord.X && seg.Y == coord.Y));
-            var segmentoAtingido = navioAtingido?.Segments.First(seg => seg.X == coord.X && seg.Y == coord.Y);
+            //verificar se nao atingiu navios da ia
 
-            segmentoAtingido.Should().BeNull();
-            // TODO FOi CTRL C + CTRL V precisa validar isso
-            /*
-                segmentoAtingido!.Hit.Should().BeTrue(
-               "O tiro foi dado, mas a coordenada no Redis não mudou para Hit=true. " +
-               "Vá até a classe Board.cs e garanta que o método ReceiveShot() altera o estado do objeto Coordinate!");
-             */
-            matchState!.Boards.P1.OceanGrid.Count.Should().BeGreaterThanOrEqualTo(tirosNaAgua,
+            var navioAtingido = matchState.Boards.P2.Ships
+                .Any(ship => ship.Segments.Any(seg => seg.X == coord.X && seg.Y == coord.Y));
+
+            navioAtingido.Should().BeFalse(
+                $"BUG: A coordenada ({coord.X}, {coord.Y}) deveria ser água pura, mas há um navio! " +
+                $"Verifique o método Passo_ObterCoordenadasDeAguaDaIAPeloRedis().");
+
+            // Validar que o tiro foi registrado corretamente no ShotHistory como miss
+            var tiroRegistrado = matchState.Boards.P2.ShotHistory
+                .FirstOrDefault(shot => shot.X == coord.X && shot.Y == coord.Y);
+
+            tiroRegistrado.Should().NotBeNull(
+                $"O tiro em ({coord.X}, {coord.Y}) não foi adicionado ao ShotHistory! " +
+                "Verifique se Board.ReceiveShot() está chamando 'ShotHistory.Add(...)' corretamente.");
+
+            tiroRegistrado!.Hit.Should().BeFalse(
+                $"O tiro em ({coord.X}, {coord.Y}) está com Hit=true, mas deveria ser false (água). " +
+                $"Vá até Board.cs linha 178 e confirme: 'ShotHistory.Add(new Coordinate(x, y, false))'");
+
+            //validar boards 
+
+            matchState.Boards.P1.OceanGrid.Count.Should().BeGreaterThanOrEqualTo(tirosNaAgua,
                 $"A IA deveria ter pelo menos {tirosNaAgua} tiro(s)!");
-            matchState!.Boards.P2.OceanGrid.Count.Should()
+            matchState.Boards.P2.OceanGrid.Count.Should()
                 .Be(tirosNaAgua, $"A IA deveria ter {tirosNaAgua} tiro(s) em seu tabuleiro!");
-
             matchState.Boards.P2.ShotHistory.Count.Should().Be(tirosNaAgua,
                 $"Histórico do Player 1 deveria ser de apenas {tirosNaAgua}, porém foram encontrados {matchState.Boards.P2.ShotHistory.Count}");
 
-            var historicoCompleto = matchState.Boards.P1.ShotHistory;
 
-            historicoCompleto.Should().NotBeEmpty("A IA deveria ter efetuado pelo menos um disparo.");
+            var historicoIA = matchState.Boards.P1.ShotHistory;
 
-            historicoCompleto.Last().Hit.Should().BeFalse("O último tiro da IA deve ser Miss (água) para que ela passe a vez de volta ao jogador.");
-            
-            var tirosDoTurnoAtual = historicoCompleto
+            historicoIA.Should().NotBeEmpty("A IA deveria ter efetuado pelo menos um disparo.");
+            if (matchState.Status == MatchStatusRedis.FINISHED)
+            {
+                historicoIA.Last().Hit.Should().BeTrue("Último tiro da IA foi vitória");
+            }
+            else
+            {
+                historicoIA.Last().Hit.Should().BeFalse("IA errou e me devolveu a vez");
+            }
+
+            var tirosDoTurnoAtual = historicoIA
                 .AsEnumerable()
-                .Reverse()                                
+                .Reverse()
                 .Skip(1)
                 .TakeWhile(shot => shot.Hit == true)
                 .Reverse()
                 .ToList();
-            
+
             if (tirosDoTurnoAtual.Count > 0)
             {
-                tirosDoTurnoAtual.Should().OnlyContain(shot => shot.Hit == true, 
+                tirosDoTurnoAtual.Should().OnlyContain(shot => shot.Hit == true,
                     "Todos os tiros disparados pela IA ANTES do erro neste turno específico deviam ser acertos (Hit).");
             }
         }
-        
-        if (matchState!.Status != MatchStatusRedis.FINISHED)
-        {
-            matchState.Status.Should().Be(MatchStatusRedis.FINISHED, "A partida deveria encerrar no Redis.");
-        }
+
+        //por incrivel que pareça existe chances da ia nao ganhar apos errar os 76 tiros, sera tratado na prox validacao
+        matchState.Should().NotBeNull("O estado da partida não deveria ser nulo ao final do loop.");
     }
 
     private async Task Passo_ValidarFimDeJogoNoBancoDeDadosFuzilarNaviosDaIA()
@@ -356,11 +374,72 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
         matchInDb.Player1Board.Ships.Should()
             .OnlyContain(s => !s.IsSunk, "Todos os navios do player 1 deveriam estar em operação");
 
-        // TODO Testes comentados pois existe o erro. Será tratado pela issue 'https://github.com/Projeto-PLP/batalha-naval-back/issues/103'
-        /*
+
             matchInDb.Player2Board.Ships.All(s => s.HasBeenHit).Should().BeTrue("A IA deveria ter TODOS seus navios atingidos");
             matchInDb.Player2Board.Ships.All(s => s.IsSunk).Should().BeTrue("A IA deveria ter TODOS seus navios afundados");
-         */
+  
+    }
+
+    private async Task Passo_ValidarFimDeJogoNoBancoDeDadosFuzilarTabuleiroDaIA()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BatalhaNavalDbContext>();
+        var matchInDb = await db.Matches.FindAsync(_matchId);
+        var totalAcertosEsperados = 76;
+
+        matchInDb.Should().NotBeNull();
+
+        if (matchInDb.Status.Equals(MatchStatus.Finished))
+        {
+            matchInDb!.Status.Should()
+                .Be(MatchStatus.Finished, "Após derrubar todos os navios, o status deve ser Finished.");
+            matchInDb.IsFinished.Should().BeTrue();
+            matchInDb.FinishedAt.Should().NotBeNull();
+
+            matchInDb.WinnerId.Should().Be(null, "IA deveria ser o vencedor da partida.");
+
+            matchInDb.Player1Misses.Should().BeLessThanOrEqualTo(totalAcertosEsperados,
+                "Player 1 deveria ter 76 erros(coordenadas de agua)");
+            matchInDb.Player1Hits.Should()
+                .Be(0, "Player 1  errou todos os tiro.");
+            matchInDb.Player1ConsecutiveHits.Should().Be(0,
+                "P1 errou todos os tiros, então não deveria ter acertos consecutivos.");
+
+
+            bool contemAcerto = matchInDb.Player2Board.Cells
+                .Any(linha => linha.Any(celula => celula == CellState.Hit));
+
+            contemAcerto.Should().BeFalse("O tabuleiro da IA não deveria ter células marcadas como Hit.");
+
+            matchInDb.Player2Board.Ships.Should()
+                .OnlyContain(s => !s.HasBeenHit, "Todos os navios da IA  deveriam estar intactos");
+            matchInDb.Player2Board.Ships.Should()
+                .OnlyContain(s => !s.IsSunk, "Todos os navios da IA deveriam estar em operação");
+            matchInDb.Player2Hits.Should().Be(24, "A IA deveria ter acertado todos os 24 segmentos para vencer.");
+            
+            matchInDb.Player1Board.Ships.All(s => s.HasBeenHit).Should().BeTrue("Player1  deveria ter TODOS seus navios atingidos");
+            matchInDb.Player1Board.Ships.All(s => s.IsSunk).Should().BeTrue("Player1 deveria ter TODOS seus navios afundados");
+        }
+        else
+        {
+            matchInDb.Status.Should().Be(MatchStatus.InProgress,
+                "IA BURRA NAO GANHOU EM 76 TIROS, ENTÃO O STATUS DEVE SER IN_PROGRESS");
+            matchInDb.WinnerId.Should().Be(null,
+                "Nenhum vencedor esperado, pois a IA não conseguiu derrubar os navios do Player 1.");
+            matchInDb.Player1Misses.Should().BeLessThanOrEqualTo(totalAcertosEsperados,
+                "Player 1 deveria ter no máximo 76 erros(coordenadas de agua)");
+            matchInDb.Player1Hits.Should()
+                .Be(0, "Player 1 deveriater errado todos os tiro.");
+            
+            _output.WriteLine("=========================================================");
+            _output.WriteLine($"Partida finalizada por exaustão de água. Turnos: {matchInDb.Player2Hits + matchInDb.Player2Misses + matchInDb.Player1Misses}");
+            _output.WriteLine("=========================================================");
+          
+        }
+
+
+            
+
     }
 
     private async Task Passo_ValidarFimDeJogoNoRedisFuzilarNaviosDaIA()
@@ -397,6 +476,43 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
             .BeNull("IA deveria ter TODOS seus navios afundados");
         finalMatchState.Boards.P2.Ships.All(ship => ship.Segments.All(s => s.Hit)).Should()
             .BeTrue("IA deveria ter todos os navios com tiro em todas as coordenadas");
+    }
+
+    private async Task Passo_ValidarFimDeJogoNoRedisFuzilarTabuleiroDaIA()
+    {
+        var finalMatchState = await ObterEstadoDoRedisAsync();
+
+        int totalAcertosEsperados = GetDefaultFleet().Sum(n => n.Size);
+
+
+        /* SO PRA BLINDAR E O TESTE poder ficar deterministico, já que existem poucos cenarios onde isso nao acontece,
+          matematicamente a ia pode nao ganhar nos 76 turnos   */ 
+        if (finalMatchState.Status == MatchStatusRedis.FINISHED)
+        {
+            finalMatchState.Status.Should()
+                .Be(MatchStatusRedis.FINISHED, "A partida deveria estar finalizada no Redis");
+
+            finalMatchState.P1_Stats.Hits.Should().Be(0, "Player 1 deveria ter 0 acertos");
+            finalMatchState.P1_Stats.Misses.Should().BeLessThanOrEqualTo(76, "Player 1 deveria ter perdido todos os tiros");
+            finalMatchState.P1_Stats.Streak.Should().Be(0, "Player 1 deveria ter 0 acertos consecutivos");
+            finalMatchState.Boards.P1.AliveShips.Should().Be(0, "Player 1 deveria ter 0 navios");
+            finalMatchState.Boards.P1.Ships.Should().AllSatisfy(s => {
+                s.IsDamaged.Should().BeTrue();
+                s.Sunk.Should().BeTrue();
+            },"TODOS OS NAVIOS DEVERIAM SER AFUNDADOS E ATINGIDOSA");
+            
+            finalMatchState.Boards.P1.Ships.All(ship => ship.Segments.All(s => s.Hit)).Should()
+                .BeTrue("Player 1 deveria ter todos os navios com tiros em todas as coordenadas");
+            
+            finalMatchState.P2_Stats.Hits.Should().Be(totalAcertosEsperados, "IA deveria ter 24 acertos");
+            
+        }
+        else
+        {
+            finalMatchState.Status.Should().Be(MatchStatusRedis.IN_PROGRESS);
+            finalMatchState.Boards.P1.AliveShips.Should().BeGreaterThan(0, "Pelo menos um navio deve estar vivo se o jogo não acabou.");
+            
+        }
     }
 
     #endregion
