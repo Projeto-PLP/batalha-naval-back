@@ -45,7 +45,7 @@ public class Match
     [Column(name:"player1_misses")] public int Player1Misses { get; set; } 
     [Column(name:"player2_misses")] public int Player2Misses { get; set; }
 
-    [Column("has_moved_this_turn")] public bool HasMovedThisTurn { get; private set; }
+    [Column("has_moved_this_turn")] public bool HasMovedThisTurn { get; set; }
 
     // ====================================================================
     // PROPRIEDADES PRINCIPAIS
@@ -84,16 +84,16 @@ public class Match
     public DateTime? FinishedAt { get; set; }
 
     [Description("Identificador único do jogador atual")]
-    public Guid CurrentTurnPlayerId { get; private set; }
+    public Guid CurrentTurnPlayerId { get; set; }
 
     [Description("Identificador único do vencedor")]
     public Guid? WinnerId { get; set; }
 
     [Description("Data e hora de início da partida")]
-    public DateTime StartedAt { get; private set; }
+    public DateTime StartedAt { get; set; }
 
     [Description("Data e hora do último movimento")]
-    public DateTime LastMoveAt { get; private set; }
+    public DateTime LastMoveAt { get; set; }
 
     // ====================================================================
     // MÉTODOS DE SUPORTE AO REDIS (MAPPING)
@@ -102,7 +102,8 @@ public class Match
     public MatchRedis ToRedisDto()
     {
         return new MatchRedis
-        {
+        {   
+            StartedAt = new DateTimeOffset(StartedAt).ToUnixTimeSeconds(),
             MatchId = Id.ToString(),
             Player1Id = Player1Id.ToString(),
             Player2Id = Player2Id?.ToString(),
@@ -144,7 +145,6 @@ public class Match
         var p2Id = string.IsNullOrEmpty(dto.Player2Id) ? (Guid?)null : Guid.Parse(dto.Player2Id);
         var mode = MapGameModeFromRedis(dto.GameMode);
         var difficulty = dto.AiDifficulty.HasValue ? MapDifficultyFromRedis(dto.AiDifficulty.Value) : (Difficulty?)null;
-
         // 2. Cria instância
         var match = new Match(p1Id, mode, difficulty, p2Id);
 
@@ -153,7 +153,8 @@ public class Match
         match.Status = MapStatusFromRedis(dto.Status);
         match.CurrentTurnPlayerId = string.IsNullOrEmpty(dto.TurnPlayerId) ? Guid.Empty : Guid.Parse(dto.TurnPlayerId);
         match.LastMoveAt = DateTimeOffset.FromUnixTimeSeconds(dto.TurnStartedAt).UtcDateTime;
-
+        match.StartedAt = DateTimeOffset.FromUnixTimeSeconds(dto.StartedAt).UtcDateTime;
+        
         // Stats
         match.Player1Hits = dto.P1_Stats.Hits;
         match.Player1ConsecutiveHits = dto.P1_Stats.Streak;

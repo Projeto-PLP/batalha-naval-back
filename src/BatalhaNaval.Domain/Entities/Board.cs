@@ -7,7 +7,7 @@ namespace BatalhaNaval.Domain.Entities;
 public class Board
 {
     public const int Size = 10;
-    public List<Coordinate> ShotHistory { get; private set; } = new();
+    public List<Coordinate> ShotHistory { get; set; } = new();
 
     public Board()
     {
@@ -27,11 +27,11 @@ public class Board
     }
 
     [JsonConstructor]
-    private Board(List<List<CellState>> cells, List<Ship> ships)
+    private Board(List<List<CellState>> cells, List<Ship> ships,List<Coordinate> shotHistory)
     {
         Cells = cells;
         Ships = ships;
-
+        ShotHistory = shotHistory;
         // Valida e corrige se veio errado do banco
         if (Cells.Count != Size)
         {
@@ -39,7 +39,7 @@ public class Board
         }
     }
 
-    public List<Ship> Ships { get; } = new();
+    public List<Ship> Ships { get; set; } = new();
 
     // Representação visual do tabuleiro
     public List<List<CellState>> Cells { get; set; }

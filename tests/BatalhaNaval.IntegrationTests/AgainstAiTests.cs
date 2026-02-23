@@ -200,7 +200,6 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
     private async Task Passo_FuzilarNaviosDaIA(List<Coordinate> coordenadas)
     {
         int acertosEsperados = 0;
-
         foreach (var coord in coordenadas)
         {
             var shotResponse = await _client.PostAsJsonAsync(EndpointShot, new
@@ -375,12 +374,10 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
         matchInDb.Player1Board.Ships.Should()
             .OnlyContain(s => !s.IsSunk, "Todos os navios do player 1 deveriam estar em operação");
 
-        // TODO Testes comentados pois existe o erro. Será tratado pela issue 'https://github.com/Projeto-PLP/batalha-naval-back/issues/103'
-        //deve ser algum erro de parse pro banco, pois no redis ta normal
-        /*
+
             matchInDb.Player2Board.Ships.All(s => s.HasBeenHit).Should().BeTrue("A IA deveria ter TODOS seus navios atingidos");
             matchInDb.Player2Board.Ships.All(s => s.IsSunk).Should().BeTrue("A IA deveria ter TODOS seus navios afundados");
-         */
+  
     }
 
     private async Task Passo_ValidarFimDeJogoNoBancoDeDadosFuzilarTabuleiroDaIA()
@@ -419,6 +416,9 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
             matchInDb.Player2Board.Ships.Should()
                 .OnlyContain(s => !s.IsSunk, "Todos os navios da IA deveriam estar em operação");
             matchInDb.Player2Hits.Should().Be(24, "A IA deveria ter acertado todos os 24 segmentos para vencer.");
+            
+            matchInDb.Player1Board.Ships.All(s => s.HasBeenHit).Should().BeTrue("Player1  deveria ter TODOS seus navios atingidos");
+            matchInDb.Player1Board.Ships.All(s => s.IsSunk).Should().BeTrue("Player1 deveria ter TODOS seus navios afundados");
         }
         else
         {
@@ -437,11 +437,9 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
           
         }
 
-        // TODO Testes comentados pois existe o erro. Será tratado pela issue 'https://github.com/Projeto-PLP/batalha-naval-back/issues/103'
-        /*
-            matchInDb.Player2Board.Ships.All(s => s.HasBeenHit).Should().BeTrue("A IA deveria ter TODOS seus navios atingidos");
-            matchInDb.Player2Board.Ships.All(s => s.IsSunk).Should().BeTrue("A IA deveria ter TODOS seus navios afundados");
-         */
+
+            
+
     }
 
     private async Task Passo_ValidarFimDeJogoNoRedisFuzilarNaviosDaIA()

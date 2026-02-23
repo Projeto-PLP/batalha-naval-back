@@ -16,10 +16,10 @@ public class UserMedal
         EarnedAt = DateTime.UtcNow;
     }
 
-    public Guid UserId { get; private set; }
-    public int MedalId { get; private set; }
-    public DateTime EarnedAt { get; private set; }
+    public Guid UserId { get; set; }
+    public int MedalId { get; set; }
+    public DateTime EarnedAt { get; set; }
 
-    public virtual User User { get; private set; }
-    public virtual Medal Medal { get; private set; }
+    public virtual User User { get; set; }
+    public virtual Medal Medal { get; set; }
 }
