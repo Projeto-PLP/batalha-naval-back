@@ -136,7 +136,35 @@ public class MatchService : IMatchService
         }
 
         // Executa lógica de domínio
-        var isHit = match.ExecuteShot(playerId, input.X.Value, input.Y.Value);
+        bool isHit;
+        try
+        {
+            isHit = match.ExecuteShot(playerId, input.X.Value, input.Y.Value);
+        }
+        catch (TurnTimeoutException ex)
+        {
+            // O oponente demorou >31s — o turno foi trocado pelo domínio.
+            // Salvamos o novo estado e avisamos o jogador para tentar de novo.
+            
+            // Se o jogo foi encerrado por inatividade (4 timeouts), finaliza
+            if (match.IsFinished)
+            {
+                await ProcessEndGameAsync(match);
+                return new TurnResultDto(false, false, true, match.WinnerId,
+                    "Partida encerrada por inatividade do oponente.");
+            }
+
+            if (match.Player2Id != null)
+            {
+                await _stateRepository.SaveStateAsync(match);
+            }
+            else if (match.CurrentTurnPlayerId == Guid.Empty)
+            {
+                await _stateRepository.SaveStateAsync(match);
+                await ProcessAiTurnLoopAsync(match);
+            }
+            return new TurnResultDto(false, false, match.IsFinished, match.WinnerId, ex.Message);
+        }
 
         // Verifica se afundou (apenas visual para o DTO de retorno)
         var targetBoard = playerId == match.Player1Id ? match.Player2Board : match.Player1Board;
@@ -223,8 +251,41 @@ public class MatchService : IMatchService
         );
     }
 
-    public async Task CancelMatchAsync(Guid matchId, Guid playerId)
+    // 5.1 POLLING DE TIMEOUT AUTOMÁTICO
+    // Chamado pelo frontend periodicamente (ex: a cada 5s).
+    // Se o tempo do turno expirou, troca o turno e aciona a IA se necessário.
+    // Retorna um DTO indicando se o turno mudou e se o jogo acabou por inatividade.
+    public async Task<TimeoutCheckResultDto> CheckTurnTimeoutAsync(Guid matchId)
     {
+        var match = await _stateRepository.GetStateAsync(matchId);
+        if (match == null) return new TimeoutCheckResultDto(false, false, null, null);
+
+        var timeoutApplied = match.ApplyTimeoutIfExpired();
+        if (!timeoutApplied) return new TimeoutCheckResultDto(false, false, null, null);
+
+        // Se o jogo foi encerrado por inatividade (4 timeouts consecutivos), finaliza
+        if (match.IsFinished)
+        {
+            await ProcessEndGameAsync(match);
+            return new TimeoutCheckResultDto(true, true, match.WinnerId,
+                "Partida encerrada por inatividade.");
+        }
+
+        // Turno foi trocado — persiste e aciona IA se necessário
+        if (match.Player2Id == null && match.CurrentTurnPlayerId == Guid.Empty)
+        {
+            await _stateRepository.SaveStateAsync(match);
+            await ProcessAiTurnLoopAsync(match);
+        }
+        else
+        {
+            await _stateRepository.SaveStateAsync(match);
+        }
+
+        return new TimeoutCheckResultDto(true, match.IsFinished, match.WinnerId, null);
+    }
+
+    public async Task CancelMatchAsync(Guid matchId, Guid playerId)    {
         // Carrega do SQL pois cancelamento é administrativo
         var match = await _repository.GetByIdAsync(matchId);
         if (match == null) throw new KeyNotFoundException($"Partida {matchId} não encontrada.");

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations.Schema;
 using BatalhaNaval.Domain.Enums;
+using BatalhaNaval.Domain.Exceptions;
 using BatalhaNaval.Domain.ValueObjects;
 
 namespace BatalhaNaval.Domain.Entities;
@@ -46,6 +47,11 @@ public class Match
     [Column(name:"player2_misses")] public int Player2Misses { get; set; }
 
     [Column("has_moved_this_turn")] public bool HasMovedThisTurn { get; set; }
+
+    // Contadores de timeouts consecutivos (reseta quando o jogador age)
+    // Persistidos apenas no Redis (via ToRedisDto/FromRedisDto), não no SQL.
+    [NotMapped] public int Player1ConsecutiveTimeouts { get; set; }
+    [NotMapped] public int Player2ConsecutiveTimeouts { get; set; }
 
     // ====================================================================
     // PROPRIEDADES PRINCIPAIS
@@ -114,6 +120,9 @@ public class Match
             TurnPlayerId = CurrentTurnPlayerId.ToString(),
             TurnStartedAt = new DateTimeOffset(LastMoveAt).ToUnixTimeSeconds(),
 
+            P1_ConsecutiveTimeouts = Player1ConsecutiveTimeouts,
+            P2_ConsecutiveTimeouts = Player2ConsecutiveTimeouts,
+
             // Mapeia Stats
             P1_Stats = new PlayerStatsRedis
             {
@@ -154,6 +163,10 @@ public class Match
         match.CurrentTurnPlayerId = string.IsNullOrEmpty(dto.TurnPlayerId) ? Guid.Empty : Guid.Parse(dto.TurnPlayerId);
         match.LastMoveAt = DateTimeOffset.FromUnixTimeSeconds(dto.TurnStartedAt).UtcDateTime;
         match.StartedAt = DateTimeOffset.FromUnixTimeSeconds(dto.StartedAt).UtcDateTime;
+
+        // Timeouts consecutivos
+        match.Player1ConsecutiveTimeouts = dto.P1_ConsecutiveTimeouts;
+        match.Player2ConsecutiveTimeouts = dto.P2_ConsecutiveTimeouts;
         
         // Stats
         match.Player1Hits = dto.P1_Stats.Hits;
@@ -345,7 +358,20 @@ public class Match
 
     public bool ExecuteShot(Guid playerId, int x, int y)
     {
-        ValidateTurn(playerId); //TODO: Colocar o turno corretamente, isso tava dando bug na troca
+        if (CheckAndApplyTimeout())
+        {
+            // Se o jogo acabou por inatividade (4 timeouts), lança exceção diferente
+            if (Status == MatchStatus.Finished)
+                throw new InvalidOperationException("Partida encerrada por inatividade.");
+
+            throw new TurnTimeoutException(
+                "Tempo esgotado! O oponente demorou mais de 31 segundos e o turno passou para você.");
+        }
+
+        ValidateTurn(playerId);
+
+        // Jogador agiu com sucesso — reseta o contador de timeouts consecutivos dele
+        ResetConsecutiveTimeouts(playerId);
 
         var targetBoard = playerId == Player1Id ? Player2Board : Player1Board;
 
@@ -357,7 +383,6 @@ public class Match
             {
                 Player1Hits++;
                 Player1ConsecutiveHits++;
-                
             }
             else
             {
@@ -369,7 +394,7 @@ public class Match
         {
             if (playerId == Player1Id)
             {
-                Player1ConsecutiveHits = 0; 
+                Player1ConsecutiveHits = 0;
                 Player1Misses++;
             }
             else
@@ -395,10 +420,22 @@ public class Match
         if (Mode != GameMode.Dynamic)
             throw new InvalidOperationException("Movimentação de navios só é permitida no modo Dinâmico.");
 
+        if (CheckAndApplyTimeout())
+        {
+            if (Status == MatchStatus.Finished)
+                throw new InvalidOperationException("Partida encerrada por inatividade.");
+
+            throw new TurnTimeoutException(
+                "Tempo esgotado! O oponente demorou mais de 31 segundos e o turno passou para você.");
+        }
+
         ValidateTurn(playerId);
 
         if (HasMovedThisTurn)
             throw new InvalidOperationException("Você já realizou um movimento neste turno. Agora deve atirar.");
+
+        // Jogador agiu com sucesso — reseta o contador de timeouts consecutivos dele
+        ResetConsecutiveTimeouts(playerId);
 
         var myBoard = playerId == Player1Id ? Player1Board : Player2Board;
 
@@ -408,15 +445,85 @@ public class Match
         LastMoveAt = DateTime.UtcNow;
     }
 
+    // ====================================================================
+    // MÉTODOS PRIVADOS DE CONTROLE DE TURNO E TEMPO
+    // ====================================================================
+
+    // Chamado pelo endpoint de polling para aplicar timeout automático sem ação do jogador.
+    // Retorna true se o turno foi trocado (ou jogo encerrado por inatividade), false se ainda está no prazo.
+    public bool ApplyTimeoutIfExpired()
+    {
+        if (Status != MatchStatus.InProgress) return false;
+        if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds <= 31) return false;
+
+        // Contabiliza o timeout para quem deixou o tempo estourar
+        IncrementTimeoutAndCheckInactivity(CurrentTurnPlayerId);
+
+        // Se atingiu 4 timeouts consecutivos, o jogo já foi encerrado por FinishByInactivity
+        if (Status == MatchStatus.Finished) return true;
+
+        SwitchTurn();
+        LastMoveAt = DateTime.UtcNow;
+        return true;
+    }
+
+    private bool CheckAndApplyTimeout()
+    {
+        if (Status != MatchStatus.InProgress) return false;
+        if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds <= 31) return false;
+
+        // Tempo estourou — penaliza o dono do turno atual, não importa quem fez a requisição.
+        // Isso impede que o jogador atrasado jogue impunemente após 31s.
+        IncrementTimeoutAndCheckInactivity(CurrentTurnPlayerId);
+
+        if (Status == MatchStatus.Finished) return true;
+
+        SwitchTurn();
+        LastMoveAt = DateTime.UtcNow;
+        return true;
+    }
+
+    /// <summary>
+    ///     Incrementa o contador de timeouts consecutivos do jogador que deixou o tempo estourar.
+    ///     Se atingir 4 timeouts consecutivos, encerra a partida por inatividade.
+    /// </summary>
+    private void IncrementTimeoutAndCheckInactivity(Guid timedOutPlayerId)
+    {
+        const int maxConsecutiveTimeouts = 4;
+
+        if (timedOutPlayerId == Player1Id)
+        {
+            Player1ConsecutiveTimeouts++;
+            if (Player1ConsecutiveTimeouts >= maxConsecutiveTimeouts)
+                FinishByInactivity(Player2Id ?? Guid.Empty);
+        }
+        else
+        {
+            Player2ConsecutiveTimeouts++;
+            if (Player2ConsecutiveTimeouts >= maxConsecutiveTimeouts)
+                FinishByInactivity(Player1Id);
+        }
+    }
+
+    /// <summary>
+    ///     Reseta o contador de timeouts consecutivos quando o jogador efetivamente joga.
+    /// </summary>
+    private void ResetConsecutiveTimeouts(Guid playerId)
+    {
+        if (playerId == Player1Id)
+            Player1ConsecutiveTimeouts = 0;
+        else
+            Player2ConsecutiveTimeouts = 0;
+    }
+
     private void ValidateTurn(Guid playerId)
     {
         if (Status != MatchStatus.InProgress) throw new InvalidOperationException("A partida não está em andamento.");
         if (IsFinishedOrTimeout()) throw new InvalidOperationException("Partida finalizada ou tempo esgotado.");
 
-        if (playerId != Guid.Empty && playerId != CurrentTurnPlayerId)
+        // Removemos a exceção do Guid.Empty. A IA agora obedece estritamente à regra de turno.
+        if (playerId != CurrentTurnPlayerId)
             throw new InvalidOperationException("Não é o seu turno.");
-        //TODO: Colocar o turno corretamente, isso tava dando bug na troca
-        // if (DateTime.UtcNow.Subtract(LastMoveAt).TotalSeconds > 31) SwitchTurn();
     }
 
     private bool IsFinishedOrTimeout()
@@ -431,6 +538,14 @@ public class Match
             : Player1Id;
 
         HasMovedThisTurn = false;
+    }
+
+    private void FinishByInactivity(Guid winnerId)
+    {
+        Status = MatchStatus.Finished;
+        WinnerId = winnerId == Guid.Empty ? null : winnerId;
+        FinishedAt = DateTime.UtcNow;
+        CurrentTurnPlayerId = Guid.Empty;
     }
 
     private void FinishGame(Guid winnerId)
