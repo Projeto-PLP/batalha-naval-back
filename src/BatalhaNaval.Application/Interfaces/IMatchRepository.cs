@@ -15,6 +15,9 @@ public interface IMatchRepository
 
     Task<Guid?> GetActiveMatchIdAsync(Guid userId);
 
+    // Retorna IDs de todas as partidas contra IA que estão em andamento (para o background service de timeout)
+    Task<List<Guid>> GetActiveAiMatchIdsAsync();
+
     Task UpdateAsync(Match match);
 
     Task DeleteAsync(Match match);

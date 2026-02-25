@@ -1,3 +1,4 @@
+using BatalhaNaval.API.BackgroundServices;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -109,6 +110,9 @@ builder.Services.AddScoped<IMatchStateRepository, MatchStateRepository>();
 
 // Aplicação (Quem detém a lógica de orquestração e IA)
 builder.Services.AddScoped<IMatchService, MatchService>();
+
+// Background Service: verifica timeout de turno em partidas contra IA a cada 5s
+builder.Services.AddHostedService<AiTimeoutBackgroundService>();
 
 // ==================================================================
 // 3. Configuração da API e Serialização JSON

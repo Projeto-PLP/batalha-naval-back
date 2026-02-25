@@ -160,4 +160,23 @@ public class MatchController : ControllerBase
 
         return Ok(state);
     }
+
+    /// <summary>
+    ///     Polling de timeout automático de turno.
+    /// </summary>
+    /// <remarks>
+    ///     Chamado pelo frontend periodicamente (ex: a cada 5s).
+    ///     Se o jogador atual demorou mais de 31s, o turno é passado automaticamente
+    ///     para o oponente (ou a IA joga imediatamente), sem precisar de ação do jogador.
+    ///     Se o jogador atingir 4 timeouts consecutivos, a partida é encerrada por inatividade.
+    ///     Retorna { turnSwitched, isGameOver, winnerId, message }.
+    /// </remarks>
+    /// <response code="200">Verificação realizada.</response>
+    [HttpPost("{id:guid}/timeout")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> CheckTimeout(Guid id)
+    {
+        var result = await _matchService.CheckTurnTimeoutAsync(id);
+        return Ok(result);
+    }
 }

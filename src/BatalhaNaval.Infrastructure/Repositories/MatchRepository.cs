@@ -100,6 +100,14 @@ public class MatchRepository : IMatchRepository
         return matchId == Guid.Empty ? null : matchId;
     }
 
+    public async Task<List<Guid>> GetActiveAiMatchIdsAsync()
+    {
+        return await _context.Matches
+            .Where(m => m.Player2Id == null && m.Status == MatchStatus.InProgress)
+            .Select(m => m.Id)
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(Match match)
     {
         _context.Matches.Update(match);
