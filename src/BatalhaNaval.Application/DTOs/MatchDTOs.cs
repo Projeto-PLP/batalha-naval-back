@@ -92,3 +92,11 @@ public record MatchStatsDto(
     int OpponentStreak,
     int OpponentMisses
 );
+
+// Retorno da verificação de timeout
+public record TimeoutCheckResultDto(
+    bool TurnSwitched,
+    bool IsGameOver,
+    Guid? WinnerId,
+    string? Message
+);

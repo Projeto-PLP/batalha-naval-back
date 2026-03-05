@@ -16,4 +16,7 @@ public interface IMatchService
     Task CancelMatchAsync(Guid matchId, Guid playerId);
 
     Task<MatchGameStateDto> GetMatchStateAsync(Guid matchId, Guid playerId);
+
+    // Polling: verifica e aplica timeout automático de turno (sem ação do jogador)
+    Task<TimeoutCheckResultDto> CheckTurnTimeoutAsync(Guid matchId);
 }
