@@ -77,6 +77,14 @@ public class Match
     [Description("Dificuldade da IA, se aplicável")]
     public Difficulty? AiDifficulty { get; }
 
+    [Description("Indica se esta partida faz parte do modo Campanha")]
+    [Column("is_campaign_match")]
+    public bool IsCampaignMatch { get; set; }
+
+    [Description("Estágio da campanha desta partida, se aplicável")]
+    [Column("campaign_stage")]
+    public CampaignStage? CampaignStage { get; set; }
+
     [Description("Status atual da partida")]
     [Column("status")]
     public MatchStatus Status { get; set; }
@@ -116,6 +124,8 @@ public class Match
             GameMode = MapGameModeToRedis(Mode),
             AiDifficulty = AiDifficulty.HasValue ? MapDifficultyToRedis(AiDifficulty.Value) : null,
             Status = MapStatusToRedis(Status),
+            IsCampaignMatch = IsCampaignMatch,
+            CampaignStage = CampaignStage.HasValue ? CampaignStage.Value.ToString() : null,
 
             TurnPlayerId = CurrentTurnPlayerId.ToString(),
             TurnStartedAt = new DateTimeOffset(LastMoveAt).ToUnixTimeSeconds(),
@@ -160,6 +170,11 @@ public class Match
         // 3. Hidrata propriedades
         match.Id = Guid.Parse(dto.MatchId);
         match.Status = MapStatusFromRedis(dto.Status);
+        match.IsCampaignMatch = dto.IsCampaignMatch;
+        match.CampaignStage = !string.IsNullOrEmpty(dto.CampaignStage)
+            && Enum.TryParse<CampaignStage>(dto.CampaignStage, out var parsedStage)
+            ? parsedStage
+            : null;
         match.CurrentTurnPlayerId = string.IsNullOrEmpty(dto.TurnPlayerId) ? Guid.Empty : Guid.Parse(dto.TurnPlayerId);
         match.LastMoveAt = DateTimeOffset.FromUnixTimeSeconds(dto.TurnStartedAt).UtcDateTime;
         match.StartedAt = DateTimeOffset.FromUnixTimeSeconds(dto.StartedAt).UtcDateTime;

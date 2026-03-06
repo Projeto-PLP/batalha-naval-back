@@ -1,4 +1,5 @@
 ﻿using BatalhaNaval.Application.DTOs;
+using BatalhaNaval.Application.Events;
 using BatalhaNaval.Application.Interfaces;
 using BatalhaNaval.Application.Services.AI;
 using BatalhaNaval.Domain.Entities;
@@ -6,6 +7,7 @@ using BatalhaNaval.Domain.Enums;
 using BatalhaNaval.Domain.Exceptions;
 using BatalhaNaval.Domain.Interfaces;
 using BatalhaNaval.Domain.ValueObjects;
+using MediatR;
 
 namespace BatalhaNaval.Application.Services;
 
@@ -14,6 +16,7 @@ public class MatchService : IMatchService
     private const int POINTS_PER_WIN = 100;
     private const int POINTS_PER_HIT = 10;
     private readonly ICacheService _cacheService;
+    private readonly IMediator _mediator;
     private readonly IMatchRepository _repository; // Postgres (Cold Storage)
     private readonly IMatchStateRepository _stateRepository; // Redis (Hot Storage)
     private readonly IUserRepository _userRepository;
@@ -22,12 +25,14 @@ public class MatchService : IMatchService
         IMatchRepository repository,
         IUserRepository userRepository,
         ICacheService cacheService,
-        IMatchStateRepository stateRepository)
+        IMatchStateRepository stateRepository,
+        IMediator mediator)
     {
         _repository = repository;
         _userRepository = userRepository;
         _cacheService = cacheService;
         _stateRepository = stateRepository;
+        _mediator = mediator;
     }
 
     // 1. INÍCIO DA PARTIDA (Mantém uso do Banco SQL para criação)
@@ -285,7 +290,8 @@ public class MatchService : IMatchService
         return new TimeoutCheckResultDto(true, match.IsFinished, match.WinnerId, null);
     }
 
-    public async Task CancelMatchAsync(Guid matchId, Guid playerId)    {
+    public async Task CancelMatchAsync(Guid matchId, Guid playerId)
+    {
         // Carrega do SQL pois cancelamento é administrativo
         var match = await _repository.GetByIdAsync(matchId);
         if (match == null) throw new KeyNotFoundException($"Partida {matchId} não encontrada.");
@@ -296,21 +302,35 @@ public class MatchService : IMatchService
         if (match.Status == MatchStatus.Finished)
             throw new InvalidOperationException("Esta partida já foi finalizada.");
 
+        // ── SETUP: a partida nunca começou de fato ──────────────────────────
+        // Deleta sem penalidades e sem publicar evento (não há jogo para registrar).
+        // O lock de partida ativa é liberado automaticamente pela exclusão do registro.
         if (match.Status == MatchStatus.Setup)
         {
             await _repository.DeleteAsync(match);
-            // Garante limpeza do cache se houver lixo
             await _stateRepository.DeleteStateAsync(matchId);
             return;
         }
 
-        // InProgress -> Finished
-        match.Status = MatchStatus.Finished;
-        match.FinishedAt = DateTime.UtcNow;
-        match.WinnerId = match.Player1Id == playerId ? match.Player2Id : match.Player1Id;
+        // ── INPROGRESS: abandono com penalidade ─────────────────────────────
+        // Quem cancela perde. O oponente vence.
+        // Em partidas contra IA (Player2Id == null), a IA não recebe WinnerId:
+        // WinnerId fica null para que ProcessEndGameAsync aplique a derrota ao Player1
+        // e o CampaignMatchFinishedHandler detecte corretamente que o jogador não venceu
+        // (early-return na checagem WinnerId == Player1Id), sem avançar o estágio.
+        var winnerId = playerId == match.Player1Id
+            ? match.Player2Id   // Se Player1 cancela: vencedor é Player2 (null se for IA)
+            : match.Player1Id;  // Se Player2 cancela: vencedor é Player1
 
-        await _repository.UpdateAsync(match); // Salva SQL
-        await _stateRepository.DeleteStateAsync(matchId); // Mata o cache da partida
+        match.Status     = MatchStatus.Finished;
+        match.FinishedAt = DateTime.UtcNow;
+        match.WinnerId   = winnerId == Guid.Empty ? null : winnerId;
+
+        // Persiste e dispara o evento (ranking + campanha) pelo pipeline normal
+        await ProcessEndGameAsync(match);
+
+        // Garante limpeza do cache da partida em andamento
+        await _stateRepository.DeleteStateAsync(matchId);
     }
 
     // 6. IA LOOP
@@ -397,6 +417,15 @@ public class MatchService : IMatchService
         }
 
         await _cacheService.RemoveAsync("global_ranking");
+
+        // 5. Publica evento de fim de partida — handlers independentes reagem (ex: Campanha)
+        await _mediator.Publish(new MatchFinishedEvent(
+            match.Id,
+            match.Player1Id,
+            match.WinnerId,
+            match.IsCampaignMatch,
+            match.CampaignStage
+        ));
     }
 
     // --- MÉTODOS PRIVADOS AUXILIARES ---

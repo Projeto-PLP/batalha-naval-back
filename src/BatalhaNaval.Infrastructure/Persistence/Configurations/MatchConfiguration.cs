@@ -90,5 +90,14 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.HasMovedThisTurn)
             .HasColumnName("has_moved_this_turn");
 
+        builder.Property(m => m.IsCampaignMatch)
+            .HasColumnName("is_campaign_match")
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(m => m.CampaignStage)
+            .HasConversion<string>()
+            .HasColumnName("campaign_stage");
+
     }
 }
