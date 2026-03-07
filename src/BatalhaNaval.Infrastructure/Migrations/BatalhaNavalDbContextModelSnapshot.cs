@@ -41,6 +41,10 @@ namespace BatalhaNaval.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_at");
 
+                    b.Property<bool>("HasMovedThisTurn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_moved_this_turn");
+
                     b.Property<DateTime>("LastMoveAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_move_at");
@@ -63,6 +67,14 @@ namespace BatalhaNaval.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("player1_id");
 
+                    b.Property<int>("Player1MaxConsecutiveHits")
+                        .HasColumnType("integer")
+                        .HasColumnName("player1_consecutive_hits");
+
+                    b.Property<int>("Player1Misses")
+                        .HasColumnType("integer")
+                        .HasColumnName("player1_misses");
+
                     b.Property<string>("Player2Board")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -75,6 +87,14 @@ namespace BatalhaNaval.Infrastructure.Migrations
                     b.Property<Guid?>("Player2Id")
                         .HasColumnType("uuid")
                         .HasColumnName("player2_id");
+
+                    b.Property<int>("Player2MaxConsecutiveHits")
+                        .HasColumnType("integer")
+                        .HasColumnName("player2_consecutive_hits");
+
+                    b.Property<int>("Player2Misses")
+                        .HasColumnType("integer")
+                        .HasColumnName("player2_misses");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone")

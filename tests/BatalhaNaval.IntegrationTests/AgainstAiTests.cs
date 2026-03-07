@@ -382,9 +382,9 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
         matchInDb.Player2Hits.Should()
             .Be(0, "A IA não deveria ter tido chance de jogar, pois Player 1 não errou nenhum tiro.");
 
-        matchInDb.Player1ConsecutiveHits.Should()
-            .Be(totalAcertosEsperados, "Player 1 deveria ter 24 acertos consecutivos");
-        matchInDb.Player2ConsecutiveHits.Should().Be(0,
+        matchInDb.Player1MaxConsecutiveHits.Should()
+            .Be(totalAcertosEsperados, "Player 1 deveria ter 24 acertos consecutivos (pico máximo = total, pois nunca errou)");
+        matchInDb.Player2MaxConsecutiveHits.Should().Be(0,
             "A IA não deveria ter tido chance de jogar, pois Player 1 não errou nenhum tiro.");
 
 
@@ -432,7 +432,7 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
                 "Player 1 deveria ter 76 erros(coordenadas de agua)");
             matchInDb.Player1Hits.Should()
                 .Be(0, "Player 1  errou todos os tiro.");
-            matchInDb.Player1ConsecutiveHits.Should().Be(0,
+            matchInDb.Player1MaxConsecutiveHits.Should().Be(0,
                 "P1 errou todos os tiros, então não deveria ter acertos consecutivos.");
 
 
@@ -480,7 +480,8 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
 
         finalMatchState.P1_Stats.Hits.Should().Be(totalAcertosEsperados, "Player 1 deveria ter 24 acertos");
         finalMatchState.P1_Stats.Misses.Should().Be(0, "Player 1 deveria ter 0 tiros perdidos");
-        finalMatchState.P1_Stats.Streak.Should().Be(24, "Player 1 deveria ter 24 acertos consecutivos");
+        finalMatchState.P1_Stats.Streak.Should().Be(24, "Player 1 deveria ter streak atual = 24 (nunca errou)");
+        finalMatchState.P1_Stats.MaxStreak.Should().Be(24, "Player 1 deveria ter pico de streak = 24 (nunca errou)");
 
         finalMatchState.Boards.P1.AliveShips.Should().Be(6, "Player 1 deveria ter 6 navios");
         finalMatchState.Boards.P1.OceanGrid.Count.Should().Be(0, "Player 1 deveria ter 0 acertos em seu tabuleiro");
@@ -512,8 +513,8 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
                 : (0, acc.Maximo)
         ).Maximo;
 
-        finalMatchState.P1_Stats.Streak.Should().Be(acertosConsecutivosRealDoP1,
-            $"A IA deveria ter {acertosConsecutivosRealDoP1} e o encontrado foi {finalMatchState.P1_Stats.Streak}");
+        finalMatchState.P1_Stats.MaxStreak.Should().Be(acertosConsecutivosRealDoP1,
+            $"A IA deveria ter {acertosConsecutivosRealDoP1} e o encontrado foi {finalMatchState.P1_Stats.MaxStreak}");
     }
 
     private async Task Passo_ValidarFimDeJogoNoRedisFuzilarTabuleiroDaIA()
@@ -553,8 +554,8 @@ public class AgainstAiTests : IClassFixture<IntegrationTestWebAppFactory>
                     : (0, acc.Maximo)
             ).Maximo;
 
-            finalMatchState.P2_Stats.Streak.Should().Be(acertosConsecutivosRealDaIA,
-                $"A IA deveria ter {acertosConsecutivosRealDaIA} e o encontrado foi {finalMatchState.P2_Stats.Streak}");
+            finalMatchState.P2_Stats.MaxStreak.Should().Be(acertosConsecutivosRealDaIA,
+                $"A IA deveria ter {acertosConsecutivosRealDaIA} e o encontrado foi {finalMatchState.P2_Stats.MaxStreak}");
         }
         else
         {

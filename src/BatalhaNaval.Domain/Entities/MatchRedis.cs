@@ -41,6 +41,9 @@ public class PlayerStatsRedis
 {
     [JsonPropertyName("Streak")] public int Streak { get; set; }
 
+    /// <summary>Pico máximo de acertos consecutivos durante a partida (nunca diminui).</summary>
+    [JsonPropertyName("MaxStreak")] public int MaxStreak { get; set; }
+
     [JsonPropertyName("Hits")] public int Hits { get; set; }
 
     [JsonPropertyName("Misses")] public int Misses { get; set; }

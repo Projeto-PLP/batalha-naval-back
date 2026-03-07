@@ -38,9 +38,22 @@ public class Match
 
     [Column("player2_hits")] public int Player2Hits { get; private set; }
 
-    [Column("player1_consecutive_hits")] public int Player1ConsecutiveHits { get; private set; }
+    /// <summary>
+    /// Sequência de acertos CONSECUTIVOS atual (reinicia ao errar).
+    /// Usado para feedback em tempo real e pelo Redis.
+    /// NÃO é persistido no SQL — o SQL armazena apenas o pico máximo.
+    /// </summary>
+    [NotMapped] public int Player1ConsecutiveHits { get; private set; }
 
-    [Column("player2_consecutive_hits")] public int Player2ConsecutiveHits { get; private set; }
+    [NotMapped] public int Player2ConsecutiveHits { get; private set; }
+
+    /// <summary>
+    /// Pico máximo de acertos consecutivos atingido durante toda a partida (nunca diminui).
+    /// Este é o valor persistido nas colunas player1_consecutive_hits / player2_consecutive_hits do banco.
+    /// </summary>
+    [Column("player1_consecutive_hits")] public int Player1MaxConsecutiveHits { get; private set; }
+
+    [Column("player2_consecutive_hits")] public int Player2MaxConsecutiveHits { get; private set; }
     
     //TOD0: Verificar estado no banco no match configuration, se vai mandar pro db
     [Column(name:"player1_misses")] public int Player1Misses { get; set; } 
@@ -128,14 +141,15 @@ public class Match
             {
                 Hits = Player1Hits,
                 Streak = Player1ConsecutiveHits,
+                MaxStreak = Player1MaxConsecutiveHits,
                 Misses = Player1Misses
             },
             P2_Stats = new PlayerStatsRedis
             {
                 Hits = Player2Hits,
                 Streak = Player2ConsecutiveHits,
+                MaxStreak = Player2MaxConsecutiveHits,
                 Misses = Player2Misses
-
             },
 
             // Mapeia Tabuleiros
@@ -171,9 +185,11 @@ public class Match
         // Stats
         match.Player1Hits = dto.P1_Stats.Hits;
         match.Player1ConsecutiveHits = dto.P1_Stats.Streak;
+        match.Player1MaxConsecutiveHits = dto.P1_Stats.MaxStreak;
         match.Player1Misses = dto.P1_Stats.Misses;
         match.Player2Hits = dto.P2_Stats.Hits;
         match.Player2ConsecutiveHits = dto.P2_Stats.Streak;
+        match.Player2MaxConsecutiveHits = dto.P2_Stats.MaxStreak;
         match.Player2Misses = dto.P2_Stats.Misses;
 
         // Tabuleiros
@@ -383,11 +399,15 @@ public class Match
             {
                 Player1Hits++;
                 Player1ConsecutiveHits++;
+                if (Player1ConsecutiveHits > Player1MaxConsecutiveHits)
+                    Player1MaxConsecutiveHits = Player1ConsecutiveHits;
             }
             else
             {
                 Player2Hits++;
                 Player2ConsecutiveHits++;
+                if (Player2ConsecutiveHits > Player2MaxConsecutiveHits)
+                    Player2MaxConsecutiveHits = Player2ConsecutiveHits;
             }
         }
         else
