@@ -119,4 +119,13 @@ public class MatchRepository : IMatchRepository
         _context.Matches.Remove(match);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<List<Match>> GetPlayerMatchHistoryAsync(Guid playerId)
+    {
+        return await _context.Matches
+            .Where(m => m.Status == MatchStatus.Finished
+                        && (m.Player1Id == playerId || m.Player2Id == playerId))
+            .OrderByDescending(m => m.FinishedAt ?? m.StartedAt)
+            .ToListAsync();
+    }
 }
