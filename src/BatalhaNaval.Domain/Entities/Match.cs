@@ -490,7 +490,6 @@ public class Match
         myBoard.MoveShip(shipId, direction);
 
         HasMovedThisTurn = true;
-        LastMoveAt = DateTime.UtcNow;
     }
 
     // ====================================================================
