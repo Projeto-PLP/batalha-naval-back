@@ -463,14 +463,19 @@ public class MatchService : IMatchService
             }
 
             await _cacheService.RemoveAsync("global_ranking");
+
+            // CORREÇÃO: Invalida o cache do perfil dos jogadores para o Front-end puxar as novas medalhas e pontos!
+            await _cacheService.RemoveAsync($"profile:{match.Player1Id}");
+            
+            if (match.Player2Id.HasValue && match.Player2Id.Value != Guid.Empty)
+            {
+                await _cacheService.RemoveAsync($"profile:{match.Player2Id.Value}");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[ERRO CRÍTICO] Falha no pós-jogo: {ex.Message}\n{ex.StackTrace}");
         }
-
-
-        await _cacheService.RemoveAsync("global_ranking");
 
         // 5. Publica evento de fim de partida — handlers independentes reagem (ex: Campanha)
         await _mediator.Publish(new MatchFinishedEvent(
