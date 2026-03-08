@@ -1,0 +1,24 @@
+meta {
+  name: Get Campaign Status2
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/campaign
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: inherit
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:5205
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

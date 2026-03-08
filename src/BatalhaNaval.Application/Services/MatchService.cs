@@ -1,4 +1,5 @@
 ﻿using BatalhaNaval.Application.DTOs;
+using BatalhaNaval.Application.Events;
 using BatalhaNaval.Application.Interfaces;
 using BatalhaNaval.Application.Services.AI;
 using BatalhaNaval.Domain.Entities;
@@ -6,6 +7,8 @@ using BatalhaNaval.Domain.Enums;
 using BatalhaNaval.Domain.Exceptions;
 using BatalhaNaval.Domain.Interfaces;
 using BatalhaNaval.Domain.ValueObjects;
+using BatalhaNaval.Domain.Rules.Medals;
+using MediatR;
 
 namespace BatalhaNaval.Application.Services;
 
@@ -14,20 +17,26 @@ public class MatchService : IMatchService
     private const int POINTS_PER_WIN = 100;
     private const int POINTS_PER_HIT = 10;
     private readonly ICacheService _cacheService;
+    private readonly IMediator _mediator;
     private readonly IMatchRepository _repository; // Postgres (Cold Storage)
     private readonly IMatchStateRepository _stateRepository; // Redis (Hot Storage)
     private readonly IUserRepository _userRepository;
+    private readonly MedalService _medalService;
 
     public MatchService(
         IMatchRepository repository,
         IUserRepository userRepository,
         ICacheService cacheService,
-        IMatchStateRepository stateRepository)
+        IMatchStateRepository stateRepository,
+        MedalService medalService,
+        IMediator mediator)
     {
         _repository = repository;
         _userRepository = userRepository;
         _cacheService = cacheService;
         _stateRepository = stateRepository;
+        _medalService = medalService;
+        _mediator = mediator;
     }
 
     // 1. INÍCIO DA PARTIDA (Mantém uso do Banco SQL para criação)
@@ -285,7 +294,8 @@ public class MatchService : IMatchService
         return new TimeoutCheckResultDto(true, match.IsFinished, match.WinnerId, null);
     }
 
-    public async Task CancelMatchAsync(Guid matchId, Guid playerId)    {
+    public async Task CancelMatchAsync(Guid matchId, Guid playerId)
+    {
         // Carrega do SQL pois cancelamento é administrativo
         var match = await _repository.GetByIdAsync(matchId);
         if (match == null) throw new KeyNotFoundException($"Partida {matchId} não encontrada.");
@@ -296,21 +306,35 @@ public class MatchService : IMatchService
         if (match.Status == MatchStatus.Finished)
             throw new InvalidOperationException("Esta partida já foi finalizada.");
 
+        // ── SETUP: a partida nunca começou de fato ──────────────────────────
+        // Deleta sem penalidades e sem publicar evento (não há jogo para registrar).
+        // O lock de partida ativa é liberado automaticamente pela exclusão do registro.
         if (match.Status == MatchStatus.Setup)
         {
             await _repository.DeleteAsync(match);
-            // Garante limpeza do cache se houver lixo
             await _stateRepository.DeleteStateAsync(matchId);
             return;
         }
 
-        // InProgress -> Finished
-        match.Status = MatchStatus.Finished;
-        match.FinishedAt = DateTime.UtcNow;
-        match.WinnerId = match.Player1Id == playerId ? match.Player2Id : match.Player1Id;
+        // ── INPROGRESS: abandono com penalidade ─────────────────────────────
+        // Quem cancela perde. O oponente vence.
+        // Em partidas contra IA (Player2Id == null), a IA não recebe WinnerId:
+        // WinnerId fica null para que ProcessEndGameAsync aplique a derrota ao Player1
+        // e o CampaignMatchFinishedHandler detecte corretamente que o jogador não venceu
+        // (early-return na checagem WinnerId == Player1Id), sem avançar o estágio.
+        var winnerId = playerId == match.Player1Id
+            ? match.Player2Id   // Se Player1 cancela: vencedor é Player2 (null se for IA)
+            : match.Player1Id;  // Se Player2 cancela: vencedor é Player1
 
-        await _repository.UpdateAsync(match); // Salva SQL
-        await _stateRepository.DeleteStateAsync(matchId); // Mata o cache da partida
+        match.Status     = MatchStatus.Finished;
+        match.FinishedAt = DateTime.UtcNow;
+        match.WinnerId   = winnerId == Guid.Empty ? null : winnerId;
+
+        // Persiste e dispara o evento (ranking + campanha) pelo pipeline normal
+        await ProcessEndGameAsync(match);
+
+        // Garante limpeza do cache da partida em andamento
+        await _stateRepository.DeleteStateAsync(matchId);
     }
 
     // 6. IA LOOP
@@ -353,50 +377,103 @@ public class MatchService : IMatchService
         // 3. Remove do Cache (Limpeza)
         // comentado pra deixar expirar sozinho (permite consulta pós-jogo imediata, mas "segura os dados no redis por 1h")
         // await _stateRepository.DeleteStateAsync(match.Id);
-
+        
+        var matchDuration = match.FinishedAt.HasValue 
+            ? match.FinishedAt.Value - match.StartedAt 
+            : TimeSpan.Zero;
+        
         // 4. Processa Pontos e Ranking (SQL) TODO:VERIFICAR SE VAI COLOCAR MISS AQUI RTAMBEM
-        if (match.WinnerId.HasValue)
+        try 
         {
-            var winnerProfile = await _repository.GetUserProfileAsync(match.WinnerId.Value);
+            if (match.WinnerId.HasValue)
             {
-                var hits = match.WinnerId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
-                var totalWinPoints = POINTS_PER_WIN + hits * POINTS_PER_HIT;
-
-                winnerProfile.AddWin(totalWinPoints);
-
-                // Medalha Almirante (Flawless Victory)
-                if (match.WinnerId == match.Player1Id && !match.Player1Board.Ships.Any(s => s.IsSunk))
-                    if (!winnerProfile.EarnedMedalCodes.Contains("ADMIRAL"))
-                        winnerProfile.EarnedMedalCodes.Add("ADMIRAL");
-
-                await _repository.UpdateUserProfileAsync(winnerProfile);
-            }
-
-            var loserId = match.WinnerId == match.Player1Id ? match.Player2Id : match.Player1Id;
-            if (loserId != null && loserId != Guid.Empty)
-            {
-                var loserProfile = await _repository.GetUserProfileAsync(loserId.Value);
+                var winnerProfile = await _repository.GetUserProfileAsync(match.WinnerId.Value);
+                
+                if (winnerProfile != null) 
                 {
-                    var hits = loserId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
-                    loserProfile.Losses++;
-                    loserProfile.CurrentStreak = 0;
-                    loserProfile.RankPoints += hits * POINTS_PER_HIT;
-                    loserProfile.UpdatedAt = DateTime.UtcNow;
-                    await _repository.UpdateUserProfileAsync(loserProfile);
+                    // CRUCIAL: Previne NullReferenceException se a coluna jsonb no Postgres estiver nula
+                    winnerProfile.EarnedMedalCodes ??= new List<string>();
+
+                    var hits = match.WinnerId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
+                    var totalWinPoints = POINTS_PER_WIN + hits * POINTS_PER_HIT;
+
+                    winnerProfile.AddWin(totalWinPoints);
+
+                    var winnerContext = new MedalContext
+                    {
+                        Match = match,
+                        Profile = winnerProfile,
+                        PlayerId = match.WinnerId.Value,
+                        MatchDuration = matchDuration,
+                        WonWithoutLosingShips = match.WinnerId == match.Player1Id 
+                            ? !match.Player1Board.Ships.Any(s => s.IsSunk)
+                            : !match.Player2Board.Ships.Any(s => s.IsSunk),
+                
+                        MaxConsecutiveHitsInMatch = match.WinnerId == match.Player1Id 
+                            ? match.Player1MaxConsecutiveHits 
+                            : match.Player2MaxConsecutiveHits
+                    };
+                    
+                    try 
+                    {
+                        await _medalService.CheckAndAwardMedalsAsync(winnerContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AVISO] Falha ao processar medalhas: {ex.Message}");
+                    }
+
+                    await _repository.UpdateUserProfileAsync(winnerProfile);
+                }
+
+                var loserId = match.WinnerId == match.Player1Id ? match.Player2Id : match.Player1Id;
+                if (loserId != null && loserId != Guid.Empty)
+                {
+                    var loserProfile = await _repository.GetUserProfileAsync(loserId.Value);
+                    
+                    if (loserProfile != null) 
+                    {
+                        var hits = loserId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
+                        loserProfile.Losses++;
+                        loserProfile.CurrentStreak = 0;
+                        loserProfile.RankPoints += hits * POINTS_PER_HIT;
+                        loserProfile.UpdatedAt = DateTime.UtcNow;
+                        await _repository.UpdateUserProfileAsync(loserProfile);
+                    }
                 }
             }
+            else
+            {
+                var loserProfile = await _repository.GetUserProfileAsync(match.Player1Id);
+                
+                if (loserProfile != null) 
+                {
+                loserProfile.Losses++;
+                loserProfile.CurrentStreak = 0;
+                loserProfile.RankPoints += match.Player1Hits * POINTS_PER_HIT;
+                loserProfile.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateUserProfileAsync(loserProfile);
+                }
+            }
+
+            await _cacheService.RemoveAsync("global_ranking");
         }
-        else
+        catch (Exception ex)
         {
-            var loserProfile = await _repository.GetUserProfileAsync(match.Player1Id);
-            loserProfile.Losses++;
-            loserProfile.CurrentStreak = 0;
-            loserProfile.RankPoints += match.Player1Hits * POINTS_PER_HIT;
-            loserProfile.UpdatedAt = DateTime.UtcNow;
-            await _repository.UpdateUserProfileAsync(loserProfile);
+            Console.WriteLine($"[ERRO CRÍTICO] Falha no pós-jogo: {ex.Message}\n{ex.StackTrace}");
         }
 
+
         await _cacheService.RemoveAsync("global_ranking");
+
+        // 5. Publica evento de fim de partida — handlers independentes reagem (ex: Campanha)
+        await _mediator.Publish(new MatchFinishedEvent(
+            match.Id,
+            match.Player1Id,
+            match.WinnerId,
+            match.IsCampaignMatch,
+            match.CampaignStage
+        ));
     }
 
     // --- MÉTODOS PRIVADOS AUXILIARES ---

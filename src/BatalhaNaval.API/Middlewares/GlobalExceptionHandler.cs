@@ -77,6 +77,13 @@ public class GlobalExceptionHandler : IExceptionHandler
             problemDetails.Detail = exception.Message;
         }
 
+        if (exception is CampaignAlreadyCompletedException)
+        {
+            problemDetails.Status = StatusCodes.Status400BadRequest;
+            problemDetails.Title = "Campanha Já Concluída";
+            problemDetails.Detail = exception.Message;
+        }
+
         if (exception is TimeoutException)
         {
             problemDetails.Status = StatusCodes.Status408RequestTimeout;

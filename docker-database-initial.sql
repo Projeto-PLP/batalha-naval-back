@@ -56,7 +56,11 @@ CREATE TABLE matches (
 
     -- [NOVO] Estatísticas de Streak (Acertos Consecutivos Atuais)
      player1_consecutive_hits INTEGER NOT NULL DEFAULT 0,
-     player2_consecutive_hits INTEGER NOT NULL DEFAULT 0
+     player2_consecutive_hits INTEGER NOT NULL DEFAULT 0,
+
+    -- [NOVO] Controle do Modo Campanha
+    is_campaign_match BOOLEAN NOT NULL DEFAULT FALSE,
+    campaign_stage INTEGER -- O EF Core salva Enums como INTEGER por padrão                     
 );
 
 -- Definição das Medalhas Disponíveis
@@ -74,6 +78,18 @@ CREATE TABLE user_medals (
      earned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (user_id, medal_id)
 );
+
+-- Progresso do Modo Campanha
+CREATE TABLE campaign_progress (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    current_stage INTEGER NOT NULL DEFAULT 1, -- 1 = Stage1Basic (Baseado no Enum)
+    completed_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índice para busca rápida da campanha do usuário
+CREATE INDEX idx_campaign_progress_user ON campaign_progress (user_id);
 
 -- Índices para Performance
 CREATE INDEX idx_profiles_rank_points ON player_profiles (rank_points DESC);

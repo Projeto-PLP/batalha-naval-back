@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BatalhaNaval.API.Extensions;
 using BatalhaNaval.Application.DTOs;
 using BatalhaNaval.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -120,5 +121,25 @@ public class UsersController : ControllerBase
         await _cacheService.SetAsync(cacheKey, ranking, TimeSpan.FromMinutes(5));
 
         return Ok(ranking);
+    }
+
+    /// <summary>
+    ///     Retorna o histórico de partidas finalizadas do jogador logado.
+    /// </summary>
+    /// <remarks>
+    ///     Retorna todas as partidas com status <c>Finished</c> em que o jogador autenticado
+    ///     participou como Player 1 ou Player 2, ordenadas da mais recente para a mais antiga.
+    /// </remarks>
+    /// <response code="200">Histórico retornado com sucesso.</response>
+    /// <response code="401">Usuário não autenticado.</response>
+    [HttpGet("history")]
+    [Authorize]
+    [ProducesResponseType(typeof(List<MatchHistoryResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMatchHistory()
+    {
+        var playerId = User.GetUserId();
+        var history = await _userService.GetMatchHistoryAsync(playerId);
+        return Ok(history);
     }
 }

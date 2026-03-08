@@ -9,4 +9,5 @@ public interface IUserService
     Task<User> GetByIdAsync(Guid id);
     Task<bool> ExistsAsync(Guid id);
     Task<List<RankingEntryDto>> GetRankingAsync();
+    Task<List<MatchHistoryResponseDto>> GetMatchHistoryAsync(Guid playerId);
 }

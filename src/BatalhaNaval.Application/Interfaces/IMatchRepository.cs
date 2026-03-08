@@ -21,4 +21,9 @@ public interface IMatchRepository
     Task UpdateAsync(Match match);
 
     Task DeleteAsync(Match match);
+
+    /// <summary>
+    /// Retorna todas as partidas finalizadas em que o jogador participou, ordenadas da mais recente para a mais antiga.
+    /// </summary>
+    Task<List<Match>> GetPlayerMatchHistoryAsync(Guid playerId);
 }

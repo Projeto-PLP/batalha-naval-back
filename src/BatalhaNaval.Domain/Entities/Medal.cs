@@ -1,5 +1,8 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace BatalhaNaval.Domain.Entities;
 
+[Table("medals")]
 public class Medal
 {
     protected Medal()
@@ -16,9 +19,15 @@ public class Medal
         Code = code;
     }
 
+    [Column("id")]
     public int Id { get; set; }
+    
+    [Column("name")]
     public string Name { get; set; }
+    
+    [Column("description")]
     public string Description { get; set; }
 
+    [Column("code")]
     public string Code { get; set; }
 }

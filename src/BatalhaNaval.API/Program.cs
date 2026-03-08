@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using BatalhaNaval.Domain.Rules.Medals;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -107,8 +108,14 @@ builder.Services.AddScoped<IMatchRepository, MatchRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMedalRepository, MedalRepository>();
 builder.Services.AddScoped<IMatchStateRepository, MatchStateRepository>();
+builder.Services.AddScoped<ICampaignRepository, CampaignRepository>();
+
+// MediatR — registra todos os handlers do projeto Application automaticamente
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(BatalhaNaval.Application.Services.MatchService).Assembly));
 
 // Aplicação (Quem detém a lógica de orquestração e IA)
+builder.Services.AddScoped<ICampaignService, CampaignService>();
 builder.Services.AddScoped<IMatchService, MatchService>();
 
 // Background Service: verifica timeout de turno em partidas contra IA a cada 5s
@@ -164,7 +171,11 @@ builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>
     }
 });
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<MedalService>();
+
+builder.Services.AddScoped<IMedalSpecification, TimeSpecification>();
+builder.Services.AddScoped<IMedalSpecification, ConsecutiveHitsSpecification>();
+builder.Services.AddScoped<IMedalSpecification, FlawlessVictorySpecification>();
 
 builder.Services.AddScoped<IUserService, UserService>();
 
