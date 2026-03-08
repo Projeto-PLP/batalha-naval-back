@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using BatalhaNaval.Domain.Rules.Medals;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -164,7 +165,11 @@ builder.Services.AddDbContext<BatalhaNavalDbContext>(options =>
     }
 });
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<MedalService>();
+
+builder.Services.AddScoped<IMedalSpecification, TimeSpecification>();
+builder.Services.AddScoped<IMedalSpecification, ConsecutiveHitsSpecification>();
+builder.Services.AddScoped<IMedalSpecification, FlawlessVictorySpecification>();
 
 builder.Services.AddScoped<IUserService, UserService>();
 

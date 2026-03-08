@@ -6,6 +6,7 @@ using BatalhaNaval.Domain.Enums;
 using BatalhaNaval.Domain.Exceptions;
 using BatalhaNaval.Domain.Interfaces;
 using BatalhaNaval.Domain.ValueObjects;
+using BatalhaNaval.Domain.Rules.Medals;
 
 namespace BatalhaNaval.Application.Services;
 
@@ -17,17 +18,20 @@ public class MatchService : IMatchService
     private readonly IMatchRepository _repository; // Postgres (Cold Storage)
     private readonly IMatchStateRepository _stateRepository; // Redis (Hot Storage)
     private readonly IUserRepository _userRepository;
+    private readonly MedalService _medalService;
 
     public MatchService(
         IMatchRepository repository,
         IUserRepository userRepository,
         ICacheService cacheService,
-        IMatchStateRepository stateRepository)
+        IMatchStateRepository stateRepository,
+        MedalService medalService)
     {
         _repository = repository;
         _userRepository = userRepository;
         _cacheService = cacheService;
         _stateRepository = stateRepository;
+        _medalService = medalService;
     }
 
     // 1. INÍCIO DA PARTIDA (Mantém uso do Banco SQL para criação)
@@ -353,50 +357,91 @@ public class MatchService : IMatchService
         // 3. Remove do Cache (Limpeza)
         // comentado pra deixar expirar sozinho (permite consulta pós-jogo imediata, mas "segura os dados no redis por 1h")
         // await _stateRepository.DeleteStateAsync(match.Id);
-
+        
+        var matchDuration = match.FinishedAt.HasValue 
+            ? match.FinishedAt.Value - match.StartedAt 
+            : TimeSpan.Zero;
+        
         // 4. Processa Pontos e Ranking (SQL) TODO:VERIFICAR SE VAI COLOCAR MISS AQUI RTAMBEM
-        if (match.WinnerId.HasValue)
+        try 
         {
-            var winnerProfile = await _repository.GetUserProfileAsync(match.WinnerId.Value);
+            if (match.WinnerId.HasValue)
             {
-                var hits = match.WinnerId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
-                var totalWinPoints = POINTS_PER_WIN + hits * POINTS_PER_HIT;
-
-                winnerProfile.AddWin(totalWinPoints);
-
-                // Medalha Almirante (Flawless Victory)
-                if (match.WinnerId == match.Player1Id && !match.Player1Board.Ships.Any(s => s.IsSunk))
-                    if (!winnerProfile.EarnedMedalCodes.Contains("ADMIRAL"))
-                        winnerProfile.EarnedMedalCodes.Add("ADMIRAL");
-
-                await _repository.UpdateUserProfileAsync(winnerProfile);
-            }
-
-            var loserId = match.WinnerId == match.Player1Id ? match.Player2Id : match.Player1Id;
-            if (loserId != null && loserId != Guid.Empty)
-            {
-                var loserProfile = await _repository.GetUserProfileAsync(loserId.Value);
+                var winnerProfile = await _repository.GetUserProfileAsync(match.WinnerId.Value);
+                
+                if (winnerProfile != null) 
                 {
-                    var hits = loserId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
-                    loserProfile.Losses++;
-                    loserProfile.CurrentStreak = 0;
-                    loserProfile.RankPoints += hits * POINTS_PER_HIT;
-                    loserProfile.UpdatedAt = DateTime.UtcNow;
-                    await _repository.UpdateUserProfileAsync(loserProfile);
+                    // CRUCIAL: Previne NullReferenceException se a coluna jsonb no Postgres estiver nula
+                    winnerProfile.EarnedMedalCodes ??= new List<string>();
+
+                    var hits = match.WinnerId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
+                    var totalWinPoints = POINTS_PER_WIN + hits * POINTS_PER_HIT;
+
+                    winnerProfile.AddWin(totalWinPoints);
+
+                    var winnerContext = new MedalContext
+                    {
+                        Match = match,
+                        Profile = winnerProfile,
+                        PlayerId = match.WinnerId.Value,
+                        MatchDuration = matchDuration,
+                        WonWithoutLosingShips = match.WinnerId == match.Player1Id 
+                            ? !match.Player1Board.Ships.Any(s => s.IsSunk)
+                            : !match.Player2Board.Ships.Any(s => s.IsSunk),
+                
+                        MaxConsecutiveHitsInMatch = match.WinnerId == match.Player1Id 
+                            ? match.Player1MaxConsecutiveHits 
+                            : match.Player2MaxConsecutiveHits
+                    };
+                    
+                    try 
+                    {
+                        await _medalService.CheckAndAwardMedalsAsync(winnerContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[AVISO] Falha ao processar medalhas: {ex.Message}");
+                    }
+
+                    await _repository.UpdateUserProfileAsync(winnerProfile);
+                }
+
+                var loserId = match.WinnerId == match.Player1Id ? match.Player2Id : match.Player1Id;
+                if (loserId != null && loserId != Guid.Empty)
+                {
+                    var loserProfile = await _repository.GetUserProfileAsync(loserId.Value);
+                    
+                    if (loserProfile != null) 
+                    {
+                        var hits = loserId == match.Player1Id ? match.Player1Hits : match.Player2Hits;
+                        loserProfile.Losses++;
+                        loserProfile.CurrentStreak = 0;
+                        loserProfile.RankPoints += hits * POINTS_PER_HIT;
+                        loserProfile.UpdatedAt = DateTime.UtcNow;
+                        await _repository.UpdateUserProfileAsync(loserProfile);
+                    }
                 }
             }
-        }
-        else
-        {
-            var loserProfile = await _repository.GetUserProfileAsync(match.Player1Id);
-            loserProfile.Losses++;
-            loserProfile.CurrentStreak = 0;
-            loserProfile.RankPoints += match.Player1Hits * POINTS_PER_HIT;
-            loserProfile.UpdatedAt = DateTime.UtcNow;
-            await _repository.UpdateUserProfileAsync(loserProfile);
-        }
+            else
+            {
+                var loserProfile = await _repository.GetUserProfileAsync(match.Player1Id);
+                
+                if (loserProfile != null) 
+                {
+                loserProfile.Losses++;
+                loserProfile.CurrentStreak = 0;
+                loserProfile.RankPoints += match.Player1Hits * POINTS_PER_HIT;
+                loserProfile.UpdatedAt = DateTime.UtcNow;
+                await _repository.UpdateUserProfileAsync(loserProfile);
+                }
+            }
 
-        await _cacheService.RemoveAsync("global_ranking");
+            await _cacheService.RemoveAsync("global_ranking");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERRO CRÍTICO] Falha no pós-jogo: {ex.Message}\n{ex.StackTrace}");
+        }
     }
 
     // --- MÉTODOS PRIVADOS AUXILIARES ---
