@@ -77,16 +77,9 @@ public class UsersController : ControllerBase
         if (cachedProfile != null)
             return Ok(cachedProfile);
 
-        var user = await _userService.GetByIdAsync(userId);
-        if (user == null) return NotFound("Usuário não encontrado.");
-
-        // TODO Verificar se pode adicionar Medalhas ao cache
-        var profileDto = new UserProfileDTO
-        {
-            RankPoints = user.Profile.RankPoints,
-            Wins = user.Profile.Wins,
-            Losses = user.Profile.Losses
-        };
+        var profileDto = await _userService.GetUserProfileAsync(userId);
+        
+        if (profileDto == null) return NotFound("Usuário não encontrado.");
 
         await _cacheService.SetAsync(cacheKey, profileDto, TimeSpan.FromMinutes(10));
 
