@@ -262,7 +262,8 @@ public class MatchService : IMatchService
             match.WinnerId,
             MapMyBoard(myBoard),
             MapOpponentBoard(opponentBoard),
-            stats
+            stats,
+            match.Mode
         );
     }
 

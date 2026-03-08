@@ -65,7 +65,8 @@ public record MatchGameStateDto(
     Guid? WinnerId,
     BoardStateDto MyBoard, // Tabuleiro do jogador (vê tudo)
     BoardStateDto OpponentBoard, // Tabuleiro do oponente (mascarado)
-    MatchStatsDto Stats
+    MatchStatsDto Stats,
+    GameMode Mode
 );
 
 public record BoardStateDto(
