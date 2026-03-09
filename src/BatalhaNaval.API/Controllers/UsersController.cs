@@ -85,6 +85,35 @@ public class UsersController : ControllerBase
 
         return Ok(profileDto);
     }
+    
+    /// <summary>
+    ///     Obtém o perfil de um jogador específico pelo ID (Público).
+    /// </summary>
+    /// <remarks>
+    ///     Usado para visualizar estatísticas de outros jogadores através do Leaderboard ou Busca.
+    /// </remarks>
+    /// <response code="200">Perfil obtido com sucesso.</response>
+    /// <response code="404">Usuário não encontrado.</response>
+    [HttpGet("{userId:guid}/profile")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserProfileDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPlayerProfile(Guid userId)
+    {
+        var cacheKey = $"profile:{userId}";
+        var cachedProfile = await _cacheService.GetAsync<UserProfileDTO>(cacheKey);
+
+        if (cachedProfile != null)
+            return Ok(cachedProfile);
+
+        var profileDto = await _userService.GetUserProfileAsync(userId);
+        
+        if (profileDto == null) return NotFound("Usuário não encontrado.");
+
+        await _cacheService.SetAsync(cacheKey, profileDto, TimeSpan.FromMinutes(10));
+
+        return Ok(profileDto);
+    }
 
 
     /// <summary>
