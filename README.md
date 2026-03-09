@@ -1,5 +1,9 @@
 # Batalha Naval - Back End
-[Scalar API Reference](http://localhost:5205/scalar/v1)
+Acesse o jogo: [Batalha Naval Aplicação](https://batalha-naval-front.vercel.app)
+
+Backend: [API](https://batalha-naval-back.onrender.com)
+
+Documentação: [Scalar API Reference](http://localhost:5205/scalar/v1)
 
 
 # 🚢 Batalha Naval - PLP Project
