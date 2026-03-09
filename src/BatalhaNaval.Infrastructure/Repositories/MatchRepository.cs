@@ -128,4 +128,19 @@ public class MatchRepository : IMatchRepository
             .OrderByDescending(m => m.FinishedAt ?? m.StartedAt)
             .ToListAsync();
     }
+    
+    public async Task<List<(Match Match, string InviterName)>> GetPendingInvitesAsync(Guid playerId)
+    {
+        return await _context.Matches
+            .Where(m => m.Player2Id == playerId && m.Status == MatchStatus.Setup)
+            .Join(
+                _context.Users,
+                m => m.Player1Id,
+                u => u.Id,
+                (m, u) => new { Match = m, InviterName = u.Username }
+            )
+            .OrderByDescending(x => x.Match.StartedAt)
+            .Select(x => new ValueTuple<Match, string>(x.Match, x.InviterName))
+            .ToListAsync();
+    }
 }

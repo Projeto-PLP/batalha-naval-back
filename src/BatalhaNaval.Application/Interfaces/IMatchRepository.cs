@@ -26,4 +26,10 @@ public interface IMatchRepository
     /// Retorna todas as partidas finalizadas em que o jogador participou, ordenadas da mais recente para a mais antiga.
     /// </summary>
     Task<List<Match>> GetPlayerMatchHistoryAsync(Guid playerId);
+
+    /// <summary>
+    /// Retorna convites PvP pendentes (partidas em Setup onde o jogador é Player2).
+    /// Cada item inclui o nome do Player1 (quem convidou).
+    /// </summary>
+    Task<List<(Match Match, string InviterName)>> GetPendingInvitesAsync(Guid playerId);
 }

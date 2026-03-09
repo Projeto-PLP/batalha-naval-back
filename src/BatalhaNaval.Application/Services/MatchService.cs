@@ -572,4 +572,16 @@ public class MatchService : IMatchService
             .ToList();
         return new BoardStateDto(maskedGrid, visibleShips);
     }
+
+    public async Task<List<MatchInviteDto>> GetPlayerInvitesAsync(Guid playerId)
+    {
+        var invites = await _repository.GetPendingInvitesAsync(playerId);
+
+        return invites.Select(i => new MatchInviteDto(
+            i.Match.Id,
+            i.InviterName,
+            i.Match.Mode,
+            i.Match.StartedAt
+        )).ToList();
+    }
 }

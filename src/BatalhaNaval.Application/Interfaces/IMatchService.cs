@@ -19,4 +19,7 @@ public interface IMatchService
 
     // Polling: verifica e aplica timeout automático de turno (sem ação do jogador)
     Task<TimeoutCheckResultDto> CheckTurnTimeoutAsync(Guid matchId);
+
+    // Retorna convites PvP pendentes para o jogador
+    Task<List<MatchInviteDto>> GetPlayerInvitesAsync(Guid playerId);
 }

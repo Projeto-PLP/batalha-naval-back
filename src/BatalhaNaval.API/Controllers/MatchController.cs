@@ -188,4 +188,21 @@ public class MatchController : ControllerBase
         var result = await _matchService.CheckTurnTimeoutAsync(id);
         return Ok(result);
     }
+
+    /// <summary>
+    ///     Lista convites PvP pendentes para o jogador autenticado.
+    /// </summary>
+    /// <remarks>
+    ///     Retorna partidas em fase de Setup onde o jogador é o Player2 (foi convidado).
+    ///     Inclui o nome do jogador que convidou e o modo de jogo.
+    /// </remarks>
+    /// <response code="200">Lista de convites pendentes.</response>
+    [HttpGet("invites")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetInvites()
+    {
+        var playerId = User.GetUserId();
+        var invites = await _matchService.GetPlayerInvitesAsync(playerId);
+        return Ok(invites);
+    }
 }

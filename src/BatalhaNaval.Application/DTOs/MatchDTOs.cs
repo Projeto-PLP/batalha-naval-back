@@ -101,3 +101,11 @@ public record TimeoutCheckResultDto(
     Guid? WinnerId,
     string? Message
 );
+
+// Convite pendente de partida PvP
+public record MatchInviteDto(
+    Guid MatchId,
+    string InviterName,
+    GameMode Mode,
+    DateTime CreatedAt
+);
