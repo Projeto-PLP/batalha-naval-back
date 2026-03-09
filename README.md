@@ -54,4 +54,4 @@ A solução foi projetada utilizando uma arquitetura distribuída para separar r
 * Julio Antonio de Cerqueira Neto
 * Pedro Tobias Souza Guerra
 * Vítor Antônio Silvestre Santos
-*  --nome dos demais...
+* Dimas Celestino da Silva Neto
