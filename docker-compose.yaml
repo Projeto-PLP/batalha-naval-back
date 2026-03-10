@@ -1,23 +1,23 @@
 services:
-  api:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    container_name: batalhanaval-api
-    ports:
-      - "8080:8080"
-    environment:
-      - ConnectionStrings__DefaultConnection=Host=batalha-naval-postgres;Port=5432;Database=postgres;Username=postgres;Password=postgres
-      - ConnectionStrings__Redis=redis:6379,password=RedisPassword123!
-      - ASPNETCORE_URLS=http://+:8080
-      - ALLOWED_ORIGINS=http://localhost:3000
-    depends_on:
-      batalha-naval-postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - app-private-network
+  # api:
+  #   build: 
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: batalhanaval-api
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - ConnectionStrings__DefaultConnection=Host=batalha-naval-postgres;Port=5432;Database=postgres;Username=postgres;Password=postgres
+  #     - ConnectionStrings__Redis=redis:6379,password=RedisPassword123!
+  #     - ASPNETCORE_URLS=http://+:8080
+  #     - ALLOWED_ORIGINS=http://localhost:3000
+  #   depends_on:
+  #     batalha-naval-postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-private-network
 
   batalha-naval-postgres:
     container_name: batalha-naval-postgres
@@ -29,6 +29,7 @@ services:
       - "5432:5432"
     volumes:
        - ./docker-database-initial.sql:/docker-entrypoint-initdb.d/docker-database-initial.sql
+       - postgres-data:/var/lib/postgresql
        - postgres-data:/var/lib/postgresql
     restart: unless-stopped
     networks:

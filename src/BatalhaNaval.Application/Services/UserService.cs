@@ -73,6 +73,7 @@ public class UserService : IUserService
 
         return new UserProfileDTO
         {
+            Id = user.Id,
             Username = user.Username,
             RankPoints = user.Profile.RankPoints,
             Wins = user.Profile.Wins,
