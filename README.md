@@ -1,5 +1,9 @@
 # Batalha Naval - Back End
-[Scalar API Reference](http://localhost:5205/scalar/v1)
+Acesse o jogo: [Batalha Naval Aplicação](https://batalha-naval-front.vercel.app)
+
+Backend: [API](https://batalha-naval-back.onrender.com)
+
+Documentação: [Scalar API Reference](http://localhost:5205/scalar/v1)
 
 
 # 🚢 Batalha Naval - PLP Project
@@ -42,9 +46,9 @@ O objetivo é desenvolver uma versão funcional e competitiva do jogo, onde joga
 A solução foi projetada utilizando uma arquitetura distribuída para separar regras de negócio, orquestração de dados e interface.
 
 * **Core API (.NET / C#):** Responsável por toda a regra de negócio, validação de jogadas, lógica das IAs e gerenciamento de estado da partida.
-* **BFF (Backend for Frontend) - JavaScript:** Camada intermediária para otimização da comunicação entre a interface e a API Core.
 * **Banco de Dados (PostgreSQL):** Persistência relacional para perfis de usuários, históricos de partidas e estatísticas.
-* **Frontend:** (Em definição).
+* **Cache (Redis):** Armazenamento de dados em memória utilizado para acelerar o processamento de dados que seriam acessados constantemente na aplicação, reduzindo a carga no banco de dados principal e permitindo suportar alto tráfego.
+* **Frontend (Next.js):**  Framework React poderoso, com configurações pré-definidas para acelerar o desenvolvimento de aplicações de alta performance.
 
 
 ## Autores 
